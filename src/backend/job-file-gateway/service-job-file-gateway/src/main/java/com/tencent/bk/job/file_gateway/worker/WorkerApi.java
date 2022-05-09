@@ -22,38 +22,36 @@
  * IN THE SOFTWARE.
  */
 
-package com.tencent.bk.job.file.worker.model.req;
+package com.tencent.bk.job.file_gateway.worker;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import com.tencent.bk.job.common.model.http.HttpReq;
+import com.tencent.bk.job.common.util.http.ExtHttpHelper;
+import com.tencent.bk.job.common.util.http.HttpHelperFactory;
+import com.tencent.bk.job.common.util.json.JsonUtils;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
-import java.util.List;
+@Slf4j
+@Service
+public class WorkerApi {
 
-@Data
-@ApiModel
-@EqualsAndHashCode(callSuper = true)
-public class DownloadFilesTaskReq extends BaseReq {
-    /**
-     * 日志标签
-     */
-    @ApiModelProperty(value = "日志标签")
-    private String logTag;
-    /**
-     * 任务Id
-     */
-    @ApiModelProperty(value = "任务Id", required = true)
-    private String taskId;
-    /**
-     * 文件名前缀
-     */
-    @ApiModelProperty(value = "文件名前缀", required = true)
-    private String filePrefix = "";
-    /**
-     * 文件路径列表
-     */
-    @ApiModelProperty(value = "文件列表", required = true)
-    private List<String> filePathList;
+    private final ExtHttpHelper httpHelper = HttpHelperFactory.getDefaultHttpHelper();
 
+    /**
+     * 向file-worker发起post请求并获取响应
+     *
+     * @param req 请求内容
+     * @return 响应内容
+     */
+    public String post(HttpReq req) {
+        if (log.isDebugEnabled()) {
+            log.debug(String.format("url=%s,body=%s,headers=%s", req.getUrl(), req.getBody(),
+                JsonUtils.toJson(req.getHeaders())));
+        }
+        String respStr = httpHelper.post(req.getUrl(), req.getBody(), req.getHeaders());
+        if (log.isDebugEnabled()) {
+            log.debug(String.format("respStr=%s", respStr));
+        }
+        return respStr;
+    }
 }

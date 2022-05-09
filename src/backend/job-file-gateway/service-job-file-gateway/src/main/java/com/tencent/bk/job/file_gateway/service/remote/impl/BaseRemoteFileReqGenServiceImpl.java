@@ -26,6 +26,7 @@ package com.tencent.bk.job.file_gateway.service.remote.impl;
 
 import com.tencent.bk.job.common.model.http.HttpReq;
 import com.tencent.bk.job.common.util.http.HttpReqGenUtil;
+import com.tencent.bk.job.common.util.json.JsonUtils;
 import com.tencent.bk.job.file.worker.model.req.BaseReq;
 import com.tencent.bk.job.file_gateway.model.dto.FileSourceDTO;
 import com.tencent.bk.job.file_gateway.model.dto.FileWorkerDTO;
@@ -72,6 +73,7 @@ public class BaseRemoteFileReqGenServiceImpl {
     }
 
     protected HttpReq genRemoteFileReq(String url, Object body) {
+        log.info("body={}", JsonUtils.toJsonWithoutSkippedFields(body));
         return HttpReqGenUtil.genSimpleJsonReq(url, body);
     }
 }

@@ -24,6 +24,7 @@
 
 package com.tencent.bk.job.file.worker.model.req;
 
+import com.tencent.bk.job.common.util.json.SkipLogFields;
 import com.tencent.bk.job.manage.model.credential.CommonCredential;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -35,11 +36,12 @@ import java.util.Map;
 public class BaseReq {
 
     // 文件源类型编码
-    String fileSourceTypeCode;
+    private String fileSourceTypeCode;
 
     // 凭据信息
-    CommonCredential credential;
+    @SkipLogFields
+    private CommonCredential credential;
 
     // 文件源信息Map
-    Map<String, Object> fileSourceInfoMap;
+    private Map<String, Object> fileSourceInfoMap;
 }

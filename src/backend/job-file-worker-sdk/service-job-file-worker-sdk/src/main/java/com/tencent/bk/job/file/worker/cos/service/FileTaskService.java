@@ -26,6 +26,7 @@ package com.tencent.bk.job.file.worker.cos.service;
 
 import com.tencent.bk.job.common.util.file.PathUtil;
 import com.tencent.bk.job.file.worker.config.WorkerConfig;
+import com.tencent.bk.job.file.worker.model.req.DownloadFilesTaskReq;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -63,6 +69,7 @@ public class FileTaskService {
     private static final ConcurrentHashMap<String, Future<?>> watchingTaskMap = new ConcurrentHashMap<>();
     private final WorkerConfig workerConfig;
     private final TaskReporter taskReporter;
+
     @Autowired
     public FileTaskService(WorkerConfig workerConfig, TaskReporter taskReporter) {
         this.workerConfig = workerConfig;
@@ -78,14 +85,27 @@ public class FileTaskService {
         return runningTaskIdList;
     }
 
-    public Integer downloadFiles(RemoteClient client, String taskId, List<String> filePathList, String filePrefix) {
+    public Integer downloadFiles(RemoteClient client, DownloadFilesTaskReq req) {
+        String taskId = req.getTaskId();
+        List<String> filePathList = req.getFilePathList();
+        String filePrefix = req.getFilePrefix();
+        String logTag = req.getLogTag();
         for (String filePath : filePathList) {
             String fileTaskKey = taskId + "_" + filePath;
             AtomicLong fileSize = new AtomicLong(0L);
             AtomicInteger speed = new AtomicInteger(0);
             AtomicInteger process = new AtomicInteger(0);
-            FileProgressWatchingTask progressWatchingTask = new FileProgressWatchingTask(taskId, filePath,
-                workerConfig.getWorkspaceDirPath(), fileSize, speed, process, taskReporter, watchingTaskMap::remove);
+            FileProgressWatchingTask progressWatchingTask = FileProgressWatchingTask.builder()
+                .taskId(taskId)
+                .filePath(filePath)
+                .downloadFileDir(workerConfig.getWorkspaceDirPath())
+                .fileSize(fileSize)
+                .speed(speed)
+                .process(process)
+                .taskReporter(taskReporter)
+                .watchingTaskEventListener(watchingTaskMap::remove)
+                .logTag(logTag)
+                .build();
             DownloadFileTask downloadFileTask = new DownloadFileTask(client, taskId, filePath,
                 workerConfig.getWorkspaceDirPath(), filePrefix, fileSize, speed, process, progressWatchingTask,
                 taskReporter, tmpfileTaskKey -> {

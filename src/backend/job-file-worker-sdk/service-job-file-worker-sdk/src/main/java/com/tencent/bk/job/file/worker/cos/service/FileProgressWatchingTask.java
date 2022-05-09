@@ -24,12 +24,15 @@
 
 package com.tencent.bk.job.file.worker.cos.service;
 
+import com.tencent.bk.job.common.util.ThreadUtils;
 import com.tencent.bk.job.common.util.file.PathUtil;
+import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Builder
 @Slf4j
 class FileProgressWatchingTask extends Thread {
 
@@ -41,6 +44,7 @@ class FileProgressWatchingTask extends Thread {
     AtomicInteger process;
     TaskReporter taskReporter;
     FileProgressWatchingTaskEventListener watchingTaskEventListener;
+    String logTag;
     volatile boolean runFlag = true;
 
     public FileProgressWatchingTask(String taskId, String filePath, String downloadFileDir, AtomicLong fileSize,
@@ -70,20 +74,18 @@ class FileProgressWatchingTask extends Thread {
                     taskReporter.reportFileDownloadProgress(taskId, filePath, downloadPath, fileSize.get(),
                         speed.get(), process.get());
                 } catch (Throwable t) {
-                    log.error("Fail to reportFileDownloadProgress of file:{}", filePath, t);
+                    log.error(logTag + "Fail to reportFileDownloadProgress of file:{}", filePath, t);
                 }
                 if (runFlag) {
-                    sleep(1000);
+                    ThreadUtils.sleep(1000);
                 }
             }
-        } catch (InterruptedException e) {
-            log.info("watching interrupted", e);
         } finally {
             if (watchingTaskEventListener != null) {
                 watchingTaskEventListener.onWatchingTaskFinally(fileTaskKey);
             }
         }
-        log.debug("end watching:{}", fileTaskKey);
+        log.debug(logTag + "end watching:{}", fileTaskKey);
     }
 
     public interface FileProgressWatchingTaskEventListener {

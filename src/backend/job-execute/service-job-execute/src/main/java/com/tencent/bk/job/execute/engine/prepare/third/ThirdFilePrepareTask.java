@@ -84,7 +84,7 @@ public class ThirdFilePrepareTask implements ContinuousScheduledTask, JobTaskCon
     private LogService logService;
     private TaskExecuteControlMsgSender taskControlMsgSender;
     private FileSourceTaskLogDAO fileSourceTaskLogDAO;
-    private ThirdFilePrepareTaskResultHandler resultHandler;
+    private final ThirdFilePrepareTaskResultHandler resultHandler;
     private int pullTimes = 0;
     private long logStart = 0L;
     private long logLength = 100L;

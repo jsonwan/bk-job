@@ -52,8 +52,7 @@ public abstract class FileTaskResourceImpl implements RemoteClientAccess, FileTa
     public Response<Integer> downloadFiles(DownloadFilesTaskReq req) {
         log.debug("req={}", req);
         RemoteClient remoteClient = getRemoteClient(req);
-        return Response.buildSuccessResp(fileTaskService.downloadFiles(remoteClient, req.getTaskId(),
-            req.getFilePathList(), req.getFilePrefix()));
+        return Response.buildSuccessResp(fileTaskService.downloadFiles(remoteClient, req));
     }
 
     @Override
