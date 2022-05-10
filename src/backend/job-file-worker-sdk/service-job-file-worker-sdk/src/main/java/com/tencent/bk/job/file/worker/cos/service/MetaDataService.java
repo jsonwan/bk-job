@@ -25,9 +25,9 @@
 package com.tencent.bk.job.file.worker.cos.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.google.common.base.Charsets;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.exception.InvalidParamException;
+import com.tencent.bk.job.common.util.Base64Util;
 import com.tencent.bk.job.common.util.json.JsonUtils;
 import com.tencent.bk.job.file_gateway.model.req.common.FileSourceMetaData;
 import com.tencent.bk.job.file_gateway.model.req.common.FileWorkerConfig;
@@ -36,12 +36,10 @@ import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
-import sun.misc.BASE64Encoder;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,12 +66,10 @@ public class MetaDataService {
                 .size(64, 64)
                 .outputFormat(suffix)
                 .toOutputStream(tmpBos);
-            ins = new ByteArrayInputStream(tmpBos.toByteArray());
-            // 对字节数组Base64编码
-            BASE64Encoder encoder = new BASE64Encoder();
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            encoder.encode(ins, bos);
-            return "data:image/" + suffix + ";base64," + bos.toString(Charsets.UTF_8.name()).replace("\n", "");
+            return "data:image/"
+                + suffix
+                + ";base64,"
+                + Base64Util.encodeContentToStr(tmpBos.toByteArray()).replace("\n", "");
         } catch (IOException e) {
             log.warn("Fail to read and encode image from path:{}", path, e);
         }

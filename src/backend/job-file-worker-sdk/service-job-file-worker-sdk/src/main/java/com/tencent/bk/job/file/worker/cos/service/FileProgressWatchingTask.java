@@ -45,20 +45,8 @@ class FileProgressWatchingTask extends Thread {
     TaskReporter taskReporter;
     FileProgressWatchingTaskEventListener watchingTaskEventListener;
     String logTag;
+    @Builder.Default
     volatile boolean runFlag = true;
-
-    public FileProgressWatchingTask(String taskId, String filePath, String downloadFileDir, AtomicLong fileSize,
-                                    AtomicInteger speed, AtomicInteger process, TaskReporter taskReporter,
-                                    FileProgressWatchingTaskEventListener watchingTaskEventListener) {
-        this.taskId = taskId;
-        this.filePath = filePath;
-        this.downloadFileDir = downloadFileDir;
-        this.fileSize = fileSize;
-        this.speed = speed;
-        this.process = process;
-        this.taskReporter = taskReporter;
-        this.watchingTaskEventListener = watchingTaskEventListener;
-    }
 
     public void stopWatching() {
         this.runFlag = false;

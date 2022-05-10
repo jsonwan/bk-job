@@ -106,12 +106,23 @@ public class FileTaskService {
                 .watchingTaskEventListener(watchingTaskMap::remove)
                 .logTag(logTag)
                 .build();
-            DownloadFileTask downloadFileTask = new DownloadFileTask(client, taskId, filePath,
-                workerConfig.getWorkspaceDirPath(), filePrefix, fileSize, speed, process, progressWatchingTask,
-                taskReporter, tmpfileTaskKey -> {
-                fileTaskMap.remove(tmpfileTaskKey);
-                ThreadCommandBus.destroyCommandQueue(tmpfileTaskKey);
-            });
+            DownloadFileTask downloadFileTask = DownloadFileTask.builder()
+                .remoteClient(client)
+                .taskId(taskId)
+                .filePath(filePath)
+                .downloadFileDir(workerConfig.getWorkspaceDirPath())
+                .filePrefix(filePrefix)
+                .fileSize(fileSize)
+                .speed(speed)
+                .process(process)
+                .watchingTask(progressWatchingTask)
+                .taskReporter(taskReporter)
+                .taskEventListener(tmpfileTaskKey -> {
+                    fileTaskMap.remove(tmpfileTaskKey);
+                    ThreadCommandBus.destroyCommandQueue(tmpfileTaskKey);
+                })
+                .logTag(logTag)
+                .build();
             Future<?> fileTaskFuture = fileTaskExecutor.submit(downloadFileTask);
             Future<?> watchingTaskFuture = watchingTaskExecutor.submit(progressWatchingTask);
             fileTaskMap.put(fileTaskKey, fileTaskFuture);

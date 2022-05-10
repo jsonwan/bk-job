@@ -31,8 +31,12 @@ import com.tencent.bk.job.common.util.FileUtil;
 import com.tencent.bk.job.common.util.file.PathUtil;
 import com.tencent.bk.job.file.worker.model.FileMetaData;
 import com.tencent.bk.job.file_gateway.consts.TaskCommandEnum;
+import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.MDC;
+import org.slf4j.helpers.FormattingTuple;
+import org.slf4j.helpers.MessageFormatter;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,7 +44,11 @@ import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * 单个任务单个文件的下载任务实现
+ */
 @Slf4j
+@Builder
 class DownloadFileTask extends Thread {
 
     RemoteClient remoteClient;
@@ -54,23 +62,7 @@ class DownloadFileTask extends Thread {
     TaskReporter taskReporter;
     DownloadFileTaskEventListener taskEventListener;
     FileProgressWatchingTask watchingTask;
-
-    public DownloadFileTask(RemoteClient remoteClient, String taskId, String filePath, String downloadFileDir,
-                            String filePrefix, AtomicLong fileSize, AtomicInteger speed, AtomicInteger process,
-                            FileProgressWatchingTask watchingTask,
-                            TaskReporter taskReporter, DownloadFileTaskEventListener taskEventListener) {
-        this.remoteClient = remoteClient;
-        this.taskId = taskId;
-        this.filePath = filePath;
-        this.downloadFileDir = downloadFileDir;
-        this.filePrefix = filePrefix;
-        this.fileSize = fileSize;
-        this.speed = speed;
-        this.process = process;
-        this.watchingTask = watchingTask;
-        this.taskReporter = taskReporter;
-        this.taskEventListener = taskEventListener;
-    }
+    String logTag;
 
     private void clearTmpFile(String path) {
         File tmpFile = new File(path);
@@ -115,7 +107,8 @@ class DownloadFileTask extends Thread {
                     downloadSuccess = true;
                 } else {
                     if (!fileMd5.equals(currentMd5)) {
-                        log.warn("Md5 not match,key={},targetPath={},fileMd5={},currentMd5={},retry {}", filePath,
+                        log.warn("Md5 not match,key={},targetPath={},fileMd5={},currentMd5={},retry {}",
+                            filePath,
                             targetPath, fileMd5, currentMd5, count);
                         clearTmpFile(targetPath);
                     } else {
@@ -125,7 +118,8 @@ class DownloadFileTask extends Thread {
                 Thread.sleep(0);
             } while (!downloadSuccess && count < 10);
             if (!downloadSuccess) {
-                throw new InternalException(String.format("Fail to download %s because md5 not match 10 times, " +
+                throw new InternalException(String.format("Fail to download %s because md5 not match 10 " +
+                    "times, " +
                     "filePath=%s", targetPath, filePath), ErrorCode.INTERNAL_ERROR);
             }
         } catch (InterruptedException e) {
@@ -148,6 +142,7 @@ class DownloadFileTask extends Thread {
 
     @Override
     public void run() {
+        MDC.put("logTag", logTag);
         String fileTaskKey = taskId + "_" + filePath;
         String downloadPath = PathUtil.joinFilePath(downloadFileDir, taskId + "/" + filePath);
         // 加前缀
@@ -183,7 +178,12 @@ class DownloadFileTask extends Thread {
                     taskReporter.reportFileDownloadProgressWithContent(taskId, filePath, downloadPath, fileSize.get(),
                         speed.get(), process.get(), ((ServiceException) t).getI18nMessage());
                 }
-                log.error("Fail to download file:filePath={},downloadPath={}", filePath, downloadPath, t);
+                FormattingTuple msg = MessageFormatter.format(
+                    "Fail to download file:filePath={},downloadPath={}",
+                    filePath,
+                    downloadPath
+                );
+                log.error(msg.getMessage() + ",err=" + t.getMessage(), t);
                 taskReporter.reportFileDownloadFailure(taskId, filePath, downloadPath);
             }
         } finally {
