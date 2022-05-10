@@ -47,12 +47,24 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/**
+ * 文件源元数据服务
+ */
 @Slf4j
 @Service
 public class MetaDataService {
 
+    /**
+     * 从资源路径下加载压缩后的图片Base64值
+     *
+     * @param path 图片资源路径
+     * @return Base64值
+     */
     private String loadResizedBase64ImageFromResource(String path) {
         InputStream ins = this.getClass().getClassLoader().getResourceAsStream(path);
+        if (ins == null) {
+            return null;
+        }
         ByteArrayOutputStream tmpBos = new ByteArrayOutputStream();
         String suffix = "png";
         int i = path.lastIndexOf(".");
@@ -76,14 +88,23 @@ public class MetaDataService {
         return null;
     }
 
-    private FileWorkerConfig parseFileSourceIcon(FileWorkerConfig fileWorkerConfig) {
+    /**
+     * 解析文件源图标
+     *
+     * @param fileWorkerConfig 接入点配置
+     */
+    private void parseFileSourceIcon(FileWorkerConfig fileWorkerConfig) {
         List<FileSourceMetaData> fileSourceMetaDataList = fileWorkerConfig.getFileSourceMetaDataList();
         for (FileSourceMetaData fileSourceMetaData : fileSourceMetaDataList) {
             fileSourceMetaData.setIconBase64(loadResizedBase64ImageFromResource(fileSourceMetaData.getIconPath()));
         }
-        return fileWorkerConfig;
     }
 
+    /**
+     * 获取文件源接入点配置
+     *
+     * @return 配置信息
+     */
     public FileWorkerConfig getFileWorkerConfig() {
         InputStream ins = null;
         BufferedReader br = null;
@@ -95,21 +116,22 @@ public class MetaDataService {
             }
             br = new BufferedReader(new InputStreamReader(ins, StandardCharsets.UTF_8));
             StringBuilder jsonStrBuilder = new StringBuilder();
-            String line = null;
+            String line;
             do {
                 line = br.readLine();
                 jsonStrBuilder.append(line);
             } while (line != null);
             br.close();
             String jsonStr = jsonStrBuilder.toString();
-            // TODO:jsonStr国际化替换
             log.debug("=================================");
             log.debug(jsonStr);
             FileWorkerConfig fileWorkerConfig = JsonUtils.fromJson(jsonStr, new TypeReference<FileWorkerConfig>() {
             });
-            log.debug("=================================");
-            log.debug(JsonUtils.toJson(fileWorkerConfig));
-            log.debug("=================================");
+            if (log.isDebugEnabled()) {
+                log.debug("=================================");
+                log.debug(JsonUtils.toJson(fileWorkerConfig));
+                log.debug("=================================");
+            }
             parseFileSourceIcon(fileWorkerConfig);
             return fileWorkerConfig;
         } catch (IOException e) {
@@ -132,9 +154,9 @@ public class MetaDataService {
     /**
      * 根据根节点类型查询子节点元信息
      *
-     * @param fileSourceTypeCode
-     * @param parentNodeType
-     * @return
+     * @param fileSourceTypeCode 文件源类型码
+     * @param parentNodeType     父节点类型
+     * @return 子节点元信息
      */
     public FileTreeNodeDef getChildFileNodeMetaDataByParent(String fileSourceTypeCode, String parentNodeType) {
         if (StringUtils.isBlank(fileSourceTypeCode)) {
@@ -144,22 +166,23 @@ public class MetaDataService {
         FileWorkerConfig fileWorkerConfig = getFileWorkerConfig();
         List<FileSourceMetaData> fileSourceMetaDataList = fileWorkerConfig.getFileSourceMetaDataList();
         for (FileSourceMetaData fileSourceMetaData : fileSourceMetaDataList) {
-            if (fileSourceTypeCode.equals(fileSourceMetaData.getFileSourceTypeCode())) {
-                List<FileTreeNodeDef> fileTreeNodeDefList = fileSourceMetaData.getFileTreeNodeDefList();
-                String childNodeType = null;
-                for (FileTreeNodeDef fileTreeNodeDef : fileTreeNodeDefList) {
-                    String nodeType = fileTreeNodeDef.getNodeType();
-                    // 对比子节点
-                    if (nodeType != null && nodeType.equals(childNodeType)) {
+            if (!fileSourceTypeCode.equals(fileSourceMetaData.getFileSourceTypeCode())) {
+                continue;
+            }
+            List<FileTreeNodeDef> fileTreeNodeDefList = fileSourceMetaData.getFileTreeNodeDefList();
+            String childNodeType = null;
+            for (FileTreeNodeDef fileTreeNodeDef : fileTreeNodeDefList) {
+                String nodeType = fileTreeNodeDef.getNodeType();
+                // 对比子节点
+                if (nodeType != null && nodeType.equals(childNodeType)) {
+                    return fileTreeNodeDef;
+                }
+                // 根据父节点找子节点
+                if (nodeType != null && nodeType.equals(parentNodeType)) {
+                    childNodeType = fileTreeNodeDef.getChildNodeType();
+                    if (childNodeType != null && childNodeType.equals(parentNodeType)) {
+                        // 子节点与父节点类型相同
                         return fileTreeNodeDef;
-                    }
-                    // 根据父节点找子节点
-                    if (nodeType != null && nodeType.equals(parentNodeType)) {
-                        childNodeType = fileTreeNodeDef.getChildNodeType();
-                        if (childNodeType != null && childNodeType.equals(parentNodeType)) {
-                            // 子节点与父节点类型相同
-                            return fileTreeNodeDef;
-                        }
                     }
                 }
             }
