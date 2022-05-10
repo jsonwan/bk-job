@@ -30,8 +30,11 @@ import com.tencent.bk.job.common.model.dto.IpDTO;
 import com.tencent.bk.job.common.util.ThreadUtils;
 import com.tencent.bk.job.common.util.file.PathUtil;
 import com.tencent.bk.job.execute.client.FileSourceTaskResourceClient;
+import com.tencent.bk.job.execute.common.constants.FileDistModeEnum;
+import com.tencent.bk.job.execute.common.constants.FileDistStatusEnum;
 import com.tencent.bk.job.execute.dao.FileSourceTaskLogDAO;
 import com.tencent.bk.job.execute.engine.TaskExecuteControlMsgSender;
+import com.tencent.bk.job.execute.engine.common.ServiceLogHelper;
 import com.tencent.bk.job.execute.engine.prepare.JobTaskContext;
 import com.tencent.bk.job.execute.engine.result.ResultHandleManager;
 import com.tencent.bk.job.execute.model.FileDetailDTO;
@@ -48,6 +51,8 @@ import com.tencent.bk.job.file_gateway.model.req.inner.FileSourceBatchDownloadTa
 import com.tencent.bk.job.file_gateway.model.req.inner.FileSourceTaskContent;
 import com.tencent.bk.job.file_gateway.model.resp.inner.BatchTaskInfoDTO;
 import com.tencent.bk.job.file_gateway.model.resp.inner.TaskInfoDTO;
+import com.tencent.bk.job.logsvr.model.service.ServiceFileTaskLogDTO;
+import com.tencent.bk.job.logsvr.model.service.ServiceIpLogDTO;
 import com.tencent.bk.job.manage.common.consts.task.TaskStepTypeEnum;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -57,8 +62,11 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -72,6 +80,7 @@ public class ThirdFilePrepareService {
     private final FileSourceTaskLogDAO fileSourceTaskLogDAO;
     private final AccountService accountService;
     private final LogService logService;
+    private final ServiceLogHelper serviceLogHelper;
     private final TaskExecuteControlMsgSender taskControlMsgSender;
     private final Map<Long, ThirdFilePrepareTask> taskMap = new ConcurrentHashMap<>();
 
@@ -80,13 +89,16 @@ public class ThirdFilePrepareService {
                                    FileSourceTaskResourceClient fileSourceTaskResource,
                                    TaskInstanceService taskInstanceService,
                                    FileSourceTaskLogDAO fileSourceTaskLogDAO, AccountService accountService,
-                                   LogService logService, TaskExecuteControlMsgSender taskControlMsgSender) {
+                                   LogService logService,
+                                   ServiceLogHelper serviceLogHelper,
+                                   TaskExecuteControlMsgSender taskControlMsgSender) {
         this.resultHandleManager = resultHandleManager;
         this.fileSourceTaskResource = fileSourceTaskResource;
         this.taskInstanceService = taskInstanceService;
         this.fileSourceTaskLogDAO = fileSourceTaskLogDAO;
         this.accountService = accountService;
         this.logService = logService;
+        this.serviceLogHelper = serviceLogHelper;
         this.taskControlMsgSender = taskControlMsgSender;
     }
 
@@ -110,8 +122,8 @@ public class ThirdFilePrepareService {
     /**
      * 将任务信息设置到步骤的文件源信息及统计数据中去
      *
-     * @param batchTaskInfoDTO
-     * @param thirdFileSourceList
+     * @param batchTaskInfoDTO    批量下载任务信息
+     * @param thirdFileSourceList 第三方文件源列表
      */
     private void setBatchTaskInfoIntoThirdFileSource(BatchTaskInfoDTO batchTaskInfoDTO,
                                                      List<FileSourceDTO> thirdFileSourceList) {
@@ -199,6 +211,59 @@ public class ThirdFilePrepareService {
         return Pair.of(thirdFileSourceList, fileSourceTaskList);
     }
 
+    private void saveInitialThirdFileTaskLogs(StepInstanceDTO stepInstanceDTO,
+                                              List<FileSourceDTO> thirdFileSourceList,
+                                              Set<String> targetIps) {
+        Map<String, ServiceIpLogDTO> logs = new HashMap<>();
+        // 每个目标IP从每个要分发的源文件下载的一条下载日志
+        for (String fileTargetIp : targetIps) {
+            ServiceIpLogDTO ipTaskLog = serviceLogHelper.initServiceLogDTOIfAbsent(logs, stepInstanceDTO.getId(),
+                stepInstanceDTO.getExecuteCount(), fileTargetIp);
+            for (FileSourceDTO fileSource : thirdFileSourceList) {
+                String thirdFileSourceAddr = "File Source-" + fileSource.getFileSourceId();
+                for (FileDetailDTO fileDetail : fileSource.getFiles()) {
+                    ServiceFileTaskLogDTO serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
+                        .mode(FileDistModeEnum.DOWNLOAD.getValue())
+                        .destIp(fileTargetIp)
+                        .destFile(stepInstanceDTO.getResolvedFileTargetPath())
+                        .srcIp(thirdFileSourceAddr)
+                        .displaySrcIp(thirdFileSourceAddr)
+                        .srcFile(fileDetail.getResolvedFilePath())
+                        .displaySrcFile(fileDetail.getResolvedFilePath())
+                        .size("--")
+                        .status(FileDistStatusEnum.PULLING.getValue())
+                        .statusDesc(FileDistStatusEnum.PULLING.getName())
+                        .speed("--")
+                        .process("--")
+                        .content(null)
+                        .build();
+                    ipTaskLog.addFileTaskLog(serviceFileTaskLog);
+                }
+            }
+        }
+        // 调用logService写入MongoDB
+        writeLogs(stepInstanceDTO.getCreateTime(), logs);
+    }
+
+    /**
+     * 调用logsvr服务写入日志
+     *
+     * @param jobCreateTime 作业创建时间
+     * @param executionLogs 日志内容
+     */
+    private void writeLogs(long jobCreateTime, Map<String, ServiceIpLogDTO> executionLogs) {
+        log.debug("Write file task initial logs, executionLogs: {}", executionLogs);
+        logService.writeFileLogs(jobCreateTime, new ArrayList<>(executionLogs.values()));
+    }
+
+    private Set<String> getTargetIpListWithCloudId(StepInstanceDTO stepInstance) {
+        Set<String> executeIps = new HashSet<>();
+        stepInstance.getTargetServers().getIpList().forEach(ipDTO -> {
+            executeIps.add(ipDTO.getCloudAreaId() + ":" + ipDTO.getIp());
+        });
+        return executeIps;
+    }
+
     public ThirdFilePrepareTask prepareThirdFileAsync(
         StepInstanceDTO stepInstance,
         ThirdFilePrepareTaskResultHandler resultHandler
@@ -212,6 +277,13 @@ public class ThirdFilePrepareService {
             taskControlMsgSender.startGseStep(stepInstance.getId());
             return null;
         }
+        // 写初始日志
+        saveInitialThirdFileTaskLogs(
+            stepInstance,
+            thirdFileSourceList,
+            getTargetIpListWithCloudId(stepInstance)
+        );
+        // 触发第三方源文件下载
         log.debug("Start FileSourceBatchTask: {}", fileSourceTaskList);
         BatchTaskInfoDTO batchTaskInfoDTO = startFileSourceDownloadTask(stepInstance.getOperator(),
             stepInstance.getAppId(), stepInstance.getId(), stepInstance.getExecuteCount(), fileSourceTaskList);
@@ -312,7 +384,8 @@ public class ThirdFilePrepareService {
         req.setStepInstanceId(stepInstanceId);
         req.setExecuteCount(executeCount);
         req.setFileSourceTaskList(fileSourceTaskList);
-        InternalResponse<BatchTaskInfoDTO> resp = fileSourceTaskResource.startFileSourceBatchDownloadTask(username, req);
+        InternalResponse<BatchTaskInfoDTO> resp = fileSourceTaskResource.startFileSourceBatchDownloadTask(username,
+            req);
         log.debug("resp={}", resp);
         if (resp.isSuccess()) {
             return resp.getData();

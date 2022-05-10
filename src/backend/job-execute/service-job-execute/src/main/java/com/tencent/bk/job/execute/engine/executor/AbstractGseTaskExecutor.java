@@ -31,6 +31,7 @@ import com.tencent.bk.job.common.util.date.DateUtils;
 import com.tencent.bk.job.execute.common.constants.RunStatusEnum;
 import com.tencent.bk.job.execute.config.JobExecuteConfig;
 import com.tencent.bk.job.execute.engine.TaskExecuteControlMsgSender;
+import com.tencent.bk.job.execute.engine.common.ServiceLogHelper;
 import com.tencent.bk.job.execute.engine.consts.IpStatus;
 import com.tencent.bk.job.execute.engine.evict.TaskEvictPolicyExecutor;
 import com.tencent.bk.job.execute.engine.exception.ExceptionStatusManager;
@@ -85,6 +86,7 @@ public abstract class AbstractGseTaskExecutor implements ResumableTask {
     protected StepInstanceVariableValueService stepInstanceVariableValueService;
     protected AgentService agentService;
     protected LogService logService;
+    protected ServiceLogHelper serviceLogHelper;
     protected TaskExecuteControlMsgSender taskManager;
     protected ResultHandleTaskKeepaliveManager resultHandleTaskKeepaliveManager;
     protected ExecuteMonitor executeMonitor;
@@ -190,6 +192,7 @@ public abstract class AbstractGseTaskExecutor implements ResumableTask {
                                      StepInstanceVariableValueService stepInstanceVariableValueService,
                                      AgentService agentService,
                                      LogService logService,
+                                     ServiceLogHelper serviceLogHelper,
                                      TaskExecuteControlMsgSender taskManager,
                                      ResultHandleTaskKeepaliveManager resultHandleTaskKeepaliveManager,
                                      ExecuteMonitor executeMonitor,
@@ -202,6 +205,7 @@ public abstract class AbstractGseTaskExecutor implements ResumableTask {
         this.stepInstanceVariableValueService = stepInstanceVariableValueService;
         this.agentService = agentService;
         this.logService = logService;
+        this.serviceLogHelper = serviceLogHelper;
         this.taskManager = taskManager;
         this.resultHandleTaskKeepaliveManager = resultHandleTaskKeepaliveManager;
         this.executeMonitor = executeMonitor;

@@ -226,14 +226,24 @@ public class FileTaskExecutor extends AbstractGseTaskExecutor {
             for (JobFile file : sendFiles) {
                 String fileSourceIp = file.isLocalUploadFile() ? IpHelper.fix1To0(localAgentIp) :
                     file.getCloudAreaIdAndIp();
-                ServiceIpLogDTO ipTaskLog = initServiceLogDTOIfAbsent(logs, stepInstanceId, executeCount, fileSourceIp);
+                ServiceIpLogDTO ipTaskLog = serviceLogHelper.initServiceLogDTOIfAbsent(
+                    logs,
+                    stepInstanceId,
+                    executeCount,
+                    fileSourceIp
+                );
                 ipTaskLog.addFileTaskLog(new ServiceFileTaskLogDTO(FileDistModeEnum.UPLOAD.getValue(), null, null,
                     fileSourceIp, fileSourceIp, file.getStandardFilePath(), file.getDisplayFilePath(), "--",
                     FileDistStatusEnum.WAITING.getValue(), FileDistStatusEnum.WAITING.getName(), "--", "--", null));
             }
             // 每个目标IP从每个要分发的源文件下载的一条下载日志
             for (String fileTargetIp : jobIpSet) {
-                ServiceIpLogDTO ipTaskLog = initServiceLogDTOIfAbsent(logs, stepInstanceId, executeCount, fileTargetIp);
+                ServiceIpLogDTO ipTaskLog = serviceLogHelper.initServiceLogDTOIfAbsent(
+                    logs,
+                    stepInstanceId,
+                    executeCount,
+                    fileTargetIp
+                );
                 for (JobFile file : sendFiles) {
                     String fileSourceIp = file.isLocalUploadFile() ? IpHelper.fix1To0(localAgentIp) :
                         file.getCloudAreaIdAndIp();
@@ -249,19 +259,6 @@ public class FileTaskExecutor extends AbstractGseTaskExecutor {
         } catch (Throwable e) {
             log.warn("Save Initial File Task logs fail", e);
         }
-    }
-
-    private ServiceIpLogDTO initServiceLogDTOIfAbsent(Map<String, ServiceIpLogDTO> logs, long stepInstanceId,
-                                                      int executeCount, String ip) {
-        ServiceIpLogDTO ipTaskLog = logs.get(ip);
-        if (ipTaskLog == null) {
-            ipTaskLog = new ServiceIpLogDTO();
-            ipTaskLog.setStepInstanceId(stepInstanceId);
-            ipTaskLog.setIp(ip);
-            ipTaskLog.setExecuteCount(executeCount);
-            logs.put(ip, ipTaskLog);
-        }
-        return ipTaskLog;
     }
 
     private void writeLogs(Map<String, ServiceIpLogDTO> executionLogs) {

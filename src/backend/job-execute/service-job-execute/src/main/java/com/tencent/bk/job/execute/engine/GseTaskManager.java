@@ -33,6 +33,7 @@ import com.tencent.bk.job.execute.common.exception.MessageHandlerUnavailableExce
 import com.tencent.bk.job.execute.common.ha.DestroyOrder;
 import com.tencent.bk.job.execute.config.JobExecuteConfig;
 import com.tencent.bk.job.execute.config.StorageSystemConfig;
+import com.tencent.bk.job.execute.engine.common.ServiceLogHelper;
 import com.tencent.bk.job.execute.engine.consts.IpStatus;
 import com.tencent.bk.job.execute.engine.evict.TaskEvictPolicyExecutor;
 import com.tencent.bk.job.execute.engine.exception.ExceptionStatusManager;
@@ -92,6 +93,7 @@ public class GseTaskManager implements SmartLifecycle {
     private final TaskExecuteControlMsgSender taskManager;
     private final AccountService accountService;
     private final LogService logService;
+    private final ServiceLogHelper serviceLogHelper;
     private final TaskInstanceVariableService taskInstanceVariableService;
     private final StepInstanceVariableValueService stepInstanceVariableValueService;
     private final AgentService agentService;
@@ -148,6 +150,7 @@ public class GseTaskManager implements SmartLifecycle {
                           TaskExecuteControlMsgSender taskManager,
                           AccountService accountService,
                           LogService logService,
+                          ServiceLogHelper serviceLogHelper,
                           TaskInstanceVariableService taskInstanceVariableService,
                           StepInstanceVariableValueService stepInstanceVariableValueService,
                           JobBuildInVariableResolver jobBuildInVariableResolver,
@@ -166,6 +169,7 @@ public class GseTaskManager implements SmartLifecycle {
         this.taskManager = taskManager;
         this.accountService = accountService;
         this.logService = logService;
+        this.serviceLogHelper = serviceLogHelper;
         this.taskInstanceVariableService = taskInstanceVariableService;
         this.stepInstanceVariableValueService = stepInstanceVariableValueService;
         this.jobBuildInVariableResolver = jobBuildInVariableResolver;
@@ -357,9 +361,21 @@ public class GseTaskManager implements SmartLifecycle {
             return null;
         }
 
-        gseTaskExecutor.initDependentService(resultHandleManager, taskInstanceService, gseTaskLogService,
-            accountService, taskInstanceVariableService, stepInstanceVariableValueService, agentService, logService,
-            taskManager, resultHandleTaskKeepaliveManager, executeMonitor, jobExecuteConfig);
+        gseTaskExecutor.initDependentService(
+            resultHandleManager,
+            taskInstanceService,
+            gseTaskLogService,
+            accountService,
+            taskInstanceVariableService,
+            stepInstanceVariableValueService,
+            agentService,
+            logService,
+            serviceLogHelper,
+            taskManager,
+            resultHandleTaskKeepaliveManager,
+            executeMonitor,
+            jobExecuteConfig
+        );
         gseTaskExecutor.setExceptionStatusManager(exceptionStatusManager);
         gseTaskExecutor.setTaskEvictPolicyExecutor(taskEvictPolicyExecutor);
         gseTaskExecutor.setTracing(tracing);
