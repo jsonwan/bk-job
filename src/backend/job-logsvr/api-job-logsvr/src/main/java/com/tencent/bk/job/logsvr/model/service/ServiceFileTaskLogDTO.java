@@ -36,7 +36,6 @@ import org.apache.commons.lang3.StringUtils;
  */
 @Builder
 @Data
-@NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class ServiceFileTaskLogDTO {
     /**
@@ -109,24 +108,6 @@ public class ServiceFileTaskLogDTO {
      */
     @JsonProperty("content")
     private String content;
-
-    public ServiceFileTaskLogDTO(Integer mode, String destIp, String destFile, String srcIp, String displaySrcIp,
-                                 String srcFile, String displaySrcFile, String size, Integer status,
-                                 String statusDesc, String speed, String process, String content) {
-        this.mode = mode;
-        this.destIp = destIp;
-        this.destFile = destFile;
-        this.srcIp = srcIp;
-        this.displaySrcIp = displaySrcIp;
-        this.srcFile = srcFile;
-        this.displaySrcFile = displaySrcFile;
-        this.size = size;
-        this.status = status;
-        this.statusDesc = statusDesc;
-        this.speed = speed;
-        this.process = process;
-        this.content = content;
-    }
 
     public String getDisplaySrcIp() {
         if (StringUtils.isNotEmpty(this.displaySrcIp)) {

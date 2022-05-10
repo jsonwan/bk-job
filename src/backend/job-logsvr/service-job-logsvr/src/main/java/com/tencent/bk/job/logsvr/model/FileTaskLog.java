@@ -163,7 +163,7 @@ public class FileTaskLog {
     }
 
     public ServiceFileTaskLogDTO toServiceFileTaskLogDTO() {
-        ServiceFileTaskLogDTO fileLog = new ServiceFileTaskLogDTO();
+        ServiceFileTaskLogDTO fileLog = ServiceFileTaskLogDTO.builder().build();
         fileLog.setTaskId(getTaskId());
         if (StringUtils.isNotEmpty(content)) {
             fileLog.setContent(content);

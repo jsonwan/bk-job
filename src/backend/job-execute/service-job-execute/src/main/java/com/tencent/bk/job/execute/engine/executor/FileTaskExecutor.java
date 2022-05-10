@@ -232,9 +232,22 @@ public class FileTaskExecutor extends AbstractGseTaskExecutor {
                     executeCount,
                     fileSourceIp
                 );
-                ipTaskLog.addFileTaskLog(new ServiceFileTaskLogDTO(FileDistModeEnum.UPLOAD.getValue(), null, null,
-                    fileSourceIp, fileSourceIp, file.getStandardFilePath(), file.getDisplayFilePath(), "--",
-                    FileDistStatusEnum.WAITING.getValue(), FileDistStatusEnum.WAITING.getName(), "--", "--", null));
+                ServiceFileTaskLogDTO serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
+                    .mode(FileDistModeEnum.UPLOAD.getValue())
+                    .destIp(null)
+                    .destFile(null)
+                    .srcIp(fileSourceIp)
+                    .displaySrcIp(fileSourceIp)
+                    .srcFile(file.getStandardFilePath())
+                    .displaySrcFile(file.getDisplayFilePath())
+                    .size("--")
+                    .status(FileDistStatusEnum.WAITING.getValue())
+                    .statusDesc(FileDistStatusEnum.WAITING.getName())
+                    .speed("--")
+                    .process("--")
+                    .content(null)
+                    .build();
+                ipTaskLog.addFileTaskLog(serviceFileTaskLog);
             }
             // 每个目标IP从每个要分发的源文件下载的一条下载日志
             for (String fileTargetIp : jobIpSet) {
@@ -247,11 +260,22 @@ public class FileTaskExecutor extends AbstractGseTaskExecutor {
                 for (JobFile file : sendFiles) {
                     String fileSourceIp = file.isLocalUploadFile() ? IpHelper.fix1To0(localAgentIp) :
                         file.getCloudAreaIdAndIp();
-                    ipTaskLog.addFileTaskLog(new ServiceFileTaskLogDTO(FileDistModeEnum.DOWNLOAD.getValue(),
-                        fileTargetIp,
-                        getDestPath(file), fileSourceIp, fileSourceIp, file.getStandardFilePath(),
-                        file.getDisplayFilePath(), "--",
-                        FileDistStatusEnum.WAITING.getValue(), FileDistStatusEnum.WAITING.getName(), "--", "--", null));
+                    ServiceFileTaskLogDTO serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
+                        .mode(FileDistModeEnum.DOWNLOAD.getValue())
+                        .destIp(fileTargetIp)
+                        .destFile(getDestPath(file))
+                        .srcIp(fileSourceIp)
+                        .displaySrcIp(fileSourceIp)
+                        .srcFile(file.getStandardFilePath())
+                        .displaySrcFile(file.getDisplayFilePath())
+                        .size("--")
+                        .status(FileDistStatusEnum.WAITING.getValue())
+                        .statusDesc(FileDistStatusEnum.WAITING.getName())
+                        .speed("--")
+                        .process("--")
+                        .content(null)
+                        .build();
+                    ipTaskLog.addFileTaskLog(serviceFileTaskLog);
                 }
             }
             // 调用logService写入MongoDB

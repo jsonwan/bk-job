@@ -607,15 +607,23 @@ public class FileResultHandleTask extends AbstractResultHandleTask<api_map_rsp> 
                 buildTaskId(taskResult.getMode(), fileSourceIp, taskResult.getStandardSourceFilePath(),
                     destCloudIp, taskResult.getStandardDestFilePath()));
             if (isAddSuccess) {
-                addFileTaskLog(executionLogs, destCloudIp,
-                    new ServiceFileTaskLogDTO(FileDistModeEnum.DOWNLOAD.getValue(),
-                        destCloudIp, taskResult.getStandardDestFilePath(), fileSourceIp, fileSourceIp,
-                        taskResult.getStandardSourceFilePath(),
-                        taskResult.getStandardSourceFilePath() == null ? null :
-                            sourceFileDisplayMap.get(taskResult.getStandardSourceFilePath()),
-                        null, FileDistStatusEnum.FAILED.getValue(),
-                        FileDistStatusEnum.FAILED.getName(),
-                        null, null, copyFileRsp.getFinalErrorMsg()));
+                ServiceFileTaskLogDTO serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
+                    .mode(FileDistModeEnum.DOWNLOAD.getValue())
+                    .destIp(destCloudIp)
+                    .destFile(taskResult.getStandardDestFilePath())
+                    .srcIp(fileSourceIp)
+                    .displaySrcIp(fileSourceIp)
+                    .srcFile(taskResult.getStandardSourceFilePath())
+                    .displaySrcFile(taskResult.getStandardSourceFilePath() == null ? null :
+                        sourceFileDisplayMap.get(taskResult.getStandardSourceFilePath()))
+                    .size(null)
+                    .status(FileDistStatusEnum.FAILED.getValue())
+                    .statusDesc(FileDistStatusEnum.FAILED.getName())
+                    .speed(null)
+                    .process(null)
+                    .content(copyFileRsp.getFinalErrorMsg())
+                    .build();
+                addFileTaskLog(executionLogs, destCloudIp, serviceFileTaskLog);
                 affectIps.add(fileSourceIp);
             }
         }
@@ -633,15 +641,23 @@ public class FileResultHandleTask extends AbstractResultHandleTask<api_map_rsp> 
             buildTaskId(taskResult.getMode(), sourceCloudIp, taskResult.getStandardSourceFilePath(),
                 destCloudIp, taskResult.getStandardDestFilePath()));
         if (isAddSuccess) {
-            addFileTaskLog(executionLogs, destCloudIp,
-                new ServiceFileTaskLogDTO(FileDistModeEnum.DOWNLOAD.getValue(),
-                    destCloudIp, taskResult.getStandardDestFilePath(), taskResult.getSourceCloudIp(),
-                    taskResult.getSourceCloudIp(),
-                    taskResult.getStandardSourceFilePath(),
-                    taskResult.getStandardSourceFilePath() == null ? null :
-                        sourceFileDisplayMap.get(taskResult.getStandardSourceFilePath()), null,
-                    FileDistStatusEnum.FAILED.getValue(),
-                    FileDistStatusEnum.FAILED.getName(), null, null, copyFileRsp.getFinalErrorMsg()));
+            ServiceFileTaskLogDTO serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
+                .mode(FileDistModeEnum.DOWNLOAD.getValue())
+                .destIp(destCloudIp)
+                .destFile(taskResult.getStandardDestFilePath())
+                .srcIp(taskResult.getSourceCloudIp())
+                .displaySrcIp(taskResult.getSourceCloudIp())
+                .srcFile(taskResult.getStandardSourceFilePath())
+                .displaySrcFile(taskResult.getStandardSourceFilePath() == null ? null :
+                    sourceFileDisplayMap.get(taskResult.getStandardSourceFilePath()))
+                .size(null)
+                .status(FileDistStatusEnum.FAILED.getValue())
+                .statusDesc(FileDistStatusEnum.FAILED.getName())
+                .speed(null)
+                .process(null)
+                .content(copyFileRsp.getFinalErrorMsg())
+                .build();
+            addFileTaskLog(executionLogs, destCloudIp, serviceFileTaskLog);
             affectIps.add(sourceCloudIp);
         }
     }
@@ -749,11 +765,22 @@ public class FileResultHandleTask extends AbstractResultHandleTask<api_map_rsp> 
             sourceFilePath, this.localUploadDir, isLocalUploadFile, displayFilePath);
 
         // 增加一条上传源失败的上传日志
-        addFileTaskLog(executionLogs, sourceCloudIp, new ServiceFileTaskLogDTO(
-            FileDistModeEnum.UPLOAD.getValue(), null,
-            null, sourceCloudIp, sourceCloudIp, sourceFilePath, displayFilePath, null,
-            FileDistStatusEnum.FAILED.getValue(), FileDistStatusEnum.FAILED.getName(), null, null,
-            copyFileRsp.getFinalErrorMsg()));
+        ServiceFileTaskLogDTO serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
+            .mode(FileDistModeEnum.UPLOAD.getValue())
+            .destIp(null)
+            .destFile(null)
+            .srcIp(sourceCloudIp)
+            .displaySrcIp(sourceCloudIp)
+            .srcFile(sourceFilePath)
+            .displaySrcFile(displayFilePath)
+            .size(null)
+            .status(FileDistStatusEnum.FAILED.getValue())
+            .statusDesc(FileDistStatusEnum.FAILED.getName())
+            .speed(null)
+            .process(null)
+            .content(copyFileRsp.getFinalErrorMsg())
+            .build();
+        addFileTaskLog(executionLogs, sourceCloudIp, serviceFileTaskLog);
         // 源失败了，会影响所有目标IP对应的agent上的download任务
         for (String targetIp : this.targetIpSet) {
             String destFilePath;
@@ -770,11 +797,22 @@ public class FileResultHandleTask extends AbstractResultHandleTask<api_map_rsp> 
                     taskResult.getStandardSourceFilePath(),
                     targetIp, destFilePath));
             // 每个目标IP增加一条下载失败的日志到日志总Map中
-            addFileTaskLog(executionLogs, targetIp, new ServiceFileTaskLogDTO(FileDistModeEnum.DOWNLOAD.getValue(),
-                targetIp, destFilePath,
-                sourceCloudIp, sourceCloudIp, sourceFilePath, displayFilePath, null,
-                FileDistStatusEnum.FAILED.getValue(), FileDistStatusEnum.FAILED.getName(),
-                null, null, copyFileRsp.getFinalErrorMsg()));
+            serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
+                .mode(FileDistModeEnum.DOWNLOAD.getValue())
+                .destIp(targetIp)
+                .destFile(destFilePath)
+                .srcIp(sourceCloudIp)
+                .displaySrcIp(sourceCloudIp)
+                .srcFile(sourceFilePath)
+                .displaySrcFile(displayFilePath)
+                .size(null)
+                .status(FileDistStatusEnum.FAILED.getValue())
+                .statusDesc(FileDistStatusEnum.FAILED.getName())
+                .speed(null)
+                .process(null)
+                .content(copyFileRsp.getFinalErrorMsg())
+                .build();
+            addFileTaskLog(executionLogs, targetIp, serviceFileTaskLog);
             affectedTargetIps.add(targetIp);
         }
     }
@@ -933,15 +971,39 @@ public class FileResultHandleTask extends AbstractResultHandleTask<api_map_rsp> 
             FileDistStatusEnum status = parseFileTaskStatus(copyFileRsp, isDownloadLog);
 
             if (isDownloadLog) {
-                addFileTaskLog(executionLogs, cloudIp, new ServiceFileTaskLogDTO(taskResult.getMode(),
-                    taskResult.getDestCloudIp(),
-                    taskResult.getStandardDestFilePath(), taskResult.getSourceCloudIp(),
-                    taskResult.getSourceCloudIp(), null,
-                    null, fileSize, status.getValue(), status.getName(), speed, processText, logContentStr));
+                ServiceFileTaskLogDTO serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
+                    .mode(taskResult.getMode())
+                    .destIp(taskResult.getDestCloudIp())
+                    .destFile(taskResult.getStandardDestFilePath())
+                    .srcIp(taskResult.getSourceCloudIp())
+                    .displaySrcIp(taskResult.getSourceCloudIp())
+                    .srcFile(null)
+                    .displaySrcFile(null)
+                    .size(fileSize)
+                    .status(status.getValue())
+                    .statusDesc(status.getName())
+                    .speed(speed)
+                    .process(processText)
+                    .content(logContentStr)
+                    .build();
+                addFileTaskLog(executionLogs, cloudIp, serviceFileTaskLog);
             } else {
-                addFileTaskLog(executionLogs, cloudIp, new ServiceFileTaskLogDTO(taskResult.getMode(), null,
-                    null, taskResult.getSourceCloudIp(), taskResult.getSourceCloudIp(), filePath,
-                    displayFilePath, fileSize, status.getValue(), status.getName(), speed, processText, logContentStr));
+                ServiceFileTaskLogDTO serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
+                    .mode(taskResult.getMode())
+                    .destIp(null)
+                    .destFile(null)
+                    .srcIp(taskResult.getSourceCloudIp())
+                    .displaySrcIp(taskResult.getSourceCloudIp())
+                    .srcFile(filePath)
+                    .displaySrcFile(displayFilePath)
+                    .size(fileSize)
+                    .status(status.getValue())
+                    .statusDesc(status.getName())
+                    .speed(speed)
+                    .process(processText)
+                    .content(logContentStr)
+                    .build();
+                addFileTaskLog(executionLogs, cloudIp, serviceFileTaskLog);
             }
         }
     }
