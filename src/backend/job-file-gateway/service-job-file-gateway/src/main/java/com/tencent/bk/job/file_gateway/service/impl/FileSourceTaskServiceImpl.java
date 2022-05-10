@@ -211,7 +211,7 @@ public class FileSourceTaskServiceImpl implements FileSourceTaskService {
         }
         String filePathWithSourceAlias = PathUtil.joinFilePath(fileSourceDTO.getAlias(), filePath);
         List<ServiceFileTaskLogDTO> fileTaskLogs = new ArrayList<>();
-        ServiceFileTaskLogDTO serviceFileTaskLogDTO = new ServiceFileTaskLogDTO();
+        ServiceFileTaskLogDTO serviceFileTaskLogDTO = ServiceFileTaskLogDTO.builder().build();
         serviceFileTaskLogDTO.setMode(0);
         serviceFileTaskLogDTO.setContent("FileName: " + filePathWithSourceAlias + " FileSize: " + fileSizeStr + " " +
             "Speed: " + speed + " Progress: " + progress + "%" + " Detail: " + content);
