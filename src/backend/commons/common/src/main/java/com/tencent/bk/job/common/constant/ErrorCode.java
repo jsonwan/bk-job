@@ -316,6 +316,10 @@ public class ErrorCode {
     public static final int FAIL_TO_REQUEST_THIRD_FILE_SOURCE_DOWNLOAD_GENERIC_FILE = 1262005;
     // 第三方文件源响应异常：GetObject，详情：{0}
     public static final int FAIL_TO_REQUEST_THIRD_FILE_SOURCE_GET_OBJECT = 1262006;
+    // COS文件不存在：{0}
+    public static final int COS_FILE_NOT_FOUND = 1262007;
+    // BKREPO文件不存在：{0}
+    public static final int BKREPO_FILE_NOT_FOUND = 1262008;
     // 文件Worker end
 
     // ==================================== 系统级错误 ================================================//

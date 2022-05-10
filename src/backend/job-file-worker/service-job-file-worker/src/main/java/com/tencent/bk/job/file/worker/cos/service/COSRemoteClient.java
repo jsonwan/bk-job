@@ -24,9 +24,13 @@
 
 package com.tencent.bk.job.file.worker.cos.service;
 
+import com.tencent.bk.job.common.constant.ErrorCode;
+import com.tencent.bk.job.common.exception.NotFoundException;
 import com.tencent.bk.job.file.worker.cos.JobTencentInnerCOSClient;
 import com.tencent.bk.job.file.worker.model.FileMetaData;
+import com.tencent.cos.exception.CosServiceException;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.http.HttpStatus;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -53,7 +57,14 @@ public class COSRemoteClient implements RemoteClient {
     @Override
     public FileMetaData getFileMetaData(String filePath) {
         List<String> pathList = parsePath(filePath);
-        return jobTencentInnerCOSClient.getFileMetaData(pathList.get(0), pathList.get(1));
+        try {
+            return jobTencentInnerCOSClient.getFileMetaData(pathList.get(0), pathList.get(1));
+        } catch (CosServiceException e) {
+            if (e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+                throw new NotFoundException(e, ErrorCode.COS_FILE_NOT_FOUND, new String[]{filePath});
+            }
+            throw e;
+        }
     }
 
     @Override

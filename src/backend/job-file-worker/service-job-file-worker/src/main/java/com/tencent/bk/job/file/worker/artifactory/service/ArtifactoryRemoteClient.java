@@ -26,6 +26,8 @@ package com.tencent.bk.job.file.worker.artifactory.service;
 
 import com.tencent.bk.job.common.artifactory.model.dto.NodeDTO;
 import com.tencent.bk.job.common.artifactory.sdk.ArtifactoryClient;
+import com.tencent.bk.job.common.constant.ErrorCode;
+import com.tencent.bk.job.common.exception.NotFoundException;
 import com.tencent.bk.job.common.exception.ServiceException;
 import com.tencent.bk.job.file.worker.cos.service.RemoteClient;
 import com.tencent.bk.job.file.worker.model.FileMetaData;
@@ -45,6 +47,9 @@ public class ArtifactoryRemoteClient extends ArtifactoryClient implements Remote
     @Override
     public FileMetaData getFileMetaData(String filePath) {
         NodeDTO nodeDTO = super.getFileNode(filePath);
+        if (nodeDTO == null) {
+            throw new NotFoundException(ErrorCode.BKREPO_FILE_NOT_FOUND, new String[]{filePath});
+        }
         return new FileMetaData(nodeDTO.getSize(), nodeDTO.getMd5());
     }
 

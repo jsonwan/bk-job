@@ -162,34 +162,45 @@ class DownloadFileTask extends Thread {
         } catch (Throwable t) {
             watchingTask.stopWatching();
             watchingTask.interrupt();
-            if (t.getCause() instanceof InterruptedException) {
-                ThreadCommandBus.Command command = ThreadCommandBus.getCommandQueue(fileTaskKey).poll();
-                if (command == null) {
-                    log.error("DownloadFileTask interrupted unexpectedly", t);
-                } else if (command.cmd == TaskCommandEnum.STOP_AND_REPORT) {
-                    //由于主动停止下载引起的异常
-                    taskReporter.reportFileDownloadStopped(taskId, filePath, downloadPath, fileSize.get(),
-                        process.get());
-                } else if (command.cmd == TaskCommandEnum.STOP_QUIETLY) {
-                    log.info("stop {} quitely, wait to be reDispatch", filePath);
-                }
-            } else {
-                if (t instanceof ServiceException) {
-                    taskReporter.reportFileDownloadProgressWithContent(taskId, filePath, downloadPath, fileSize.get(),
-                        speed.get(), process.get(), ((ServiceException) t).getI18nMessage());
-                }
-                FormattingTuple msg = MessageFormatter.format(
-                    "Fail to download file:filePath={},downloadPath={}",
-                    filePath,
-                    downloadPath
-                );
-                log.error(msg.getMessage() + ",err=" + t.getMessage(), t);
-                taskReporter.reportFileDownloadFailure(taskId, filePath, downloadPath);
-            }
+            analysisThrowableAndReport(t, fileTaskKey, downloadPath);
         } finally {
             if (taskEventListener != null) {
                 taskEventListener.onTaskFinally(fileTaskKey);
             }
+        }
+    }
+
+    /**
+     * 分析异常并上报错误信息
+     *
+     * @param t            异常
+     * @param fileTaskKey  文件下载任务标识
+     * @param downloadPath 下载路径
+     */
+    private void analysisThrowableAndReport(Throwable t, String fileTaskKey, String downloadPath) {
+        if (t.getCause() instanceof InterruptedException) {
+            ThreadCommandBus.Command command = ThreadCommandBus.getCommandQueue(fileTaskKey).poll();
+            if (command == null) {
+                log.error("DownloadFileTask interrupted unexpectedly", t);
+            } else if (command.cmd == TaskCommandEnum.STOP_AND_REPORT) {
+                //由于主动停止下载引起的异常
+                taskReporter.reportFileDownloadStopped(taskId, filePath, downloadPath, fileSize.get(),
+                    process.get());
+            } else if (command.cmd == TaskCommandEnum.STOP_QUIETLY) {
+                log.info("stop {} quitely, wait to be reDispatch", filePath);
+            }
+        } else {
+            if (t instanceof ServiceException) {
+                taskReporter.reportFileDownloadProgressWithContent(taskId, filePath, downloadPath, fileSize.get(),
+                    speed.get(), process.get(), ((ServiceException) t).getI18nMessage());
+            }
+            FormattingTuple msg = MessageFormatter.format(
+                "Fail to download file:filePath={},downloadPath={}",
+                filePath,
+                downloadPath
+            );
+            log.error(msg.getMessage() + ",err=" + t.getMessage(), t);
+            taskReporter.reportFileDownloadFailure(taskId, filePath, downloadPath);
         }
     }
 

@@ -391,15 +391,7 @@ public class ArtifactoryClient {
 
     public NodeDTO getFileNode(String filePath) {
         List<String> pathList = parsePath(filePath);
-        NodeDTO nodeDTO = queryNodeDetail(pathList.get(0), pathList.get(1), pathList.get(2));
-        if (null == nodeDTO) {
-            throw new InternalException(
-                "can not find node by filePath",
-                ErrorCode.CAN_NOT_FIND_NODE_IN_ARTIFACTORY,
-                new Object[]{filePath}
-            );
-        }
-        return nodeDTO;
+        return queryNodeDetail(pathList.get(0), pathList.get(1), pathList.get(2));
     }
 
     public Pair<InputStream, Long> getFileInputStream(String filePath) throws ServiceException {
