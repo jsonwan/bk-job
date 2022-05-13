@@ -26,7 +26,6 @@ package com.tencent.bk.job.execute.engine.executor;
 
 import brave.Tracing;
 import com.tencent.bk.job.common.constant.JobConstants;
-import com.tencent.bk.job.common.constant.TaskVariableTypeEnum;
 import com.tencent.bk.job.common.util.date.DateUtils;
 import com.tencent.bk.job.execute.common.constants.RunStatusEnum;
 import com.tencent.bk.job.execute.config.JobExecuteConfig;
@@ -41,6 +40,7 @@ import com.tencent.bk.job.execute.engine.model.TaskVariableDTO;
 import com.tencent.bk.job.execute.engine.model.TaskVariablesAnalyzeResult;
 import com.tencent.bk.job.execute.engine.result.ResultHandleManager;
 import com.tencent.bk.job.execute.engine.result.ha.ResultHandleTaskKeepaliveManager;
+import com.tencent.bk.job.execute.engine.variable.VariableManager;
 import com.tencent.bk.job.execute.model.AccountDTO;
 import com.tencent.bk.job.execute.model.GseTaskIpLogDTO;
 import com.tencent.bk.job.execute.model.GseTaskLogDTO;
@@ -57,7 +57,6 @@ import com.tencent.bk.job.execute.service.StepInstanceVariableValueService;
 import com.tencent.bk.job.execute.service.TaskInstanceService;
 import com.tencent.bk.job.execute.service.TaskInstanceVariableService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.util.StopWatch;
 
@@ -93,6 +92,7 @@ public abstract class AbstractGseTaskExecutor implements ResumableTask {
     protected ExceptionStatusManager exceptionStatusManager;
     protected TaskEvictPolicyExecutor taskEvictPolicyExecutor;
     protected JobExecuteConfig jobExecuteConfig;
+    protected VariableManager variableManager;
     protected String requestId;
     protected Tracing tracing;
     /**
@@ -196,7 +196,8 @@ public abstract class AbstractGseTaskExecutor implements ResumableTask {
                                      TaskExecuteControlMsgSender taskManager,
                                      ResultHandleTaskKeepaliveManager resultHandleTaskKeepaliveManager,
                                      ExecuteMonitor executeMonitor,
-                                     JobExecuteConfig jobExecuteConfig) {
+                                     JobExecuteConfig jobExecuteConfig,
+                                     VariableManager variableManager) {
         this.resultHandleManager = resultHandleManager;
         this.taskInstanceService = taskInstanceService;
         this.gseTaskLogService = gseTaskLogService;
@@ -210,6 +211,7 @@ public abstract class AbstractGseTaskExecutor implements ResumableTask {
         this.resultHandleTaskKeepaliveManager = resultHandleTaskKeepaliveManager;
         this.executeMonitor = executeMonitor;
         this.jobExecuteConfig = jobExecuteConfig;
+        this.variableManager = variableManager;
     }
 
     public void setExceptionStatusManager(ExceptionStatusManager exceptionStatusManager) {
@@ -294,20 +296,6 @@ public abstract class AbstractGseTaskExecutor implements ResumableTask {
         ipLog.setSourceServer(isSourceServer);
         return ipLog;
     }
-
-    protected Map<String, String> buildReferenceGlobalVarValueMap(StepInstanceVariableValuesDTO stepInputVariables) {
-        Map<String, String> globalVarValueMap = new HashMap<>();
-        if (stepInputVariables == null || CollectionUtils.isEmpty(stepInputVariables.getGlobalParams())) {
-            return globalVarValueMap;
-        }
-        stepInputVariables.getGlobalParams().forEach(globalParam -> {
-            if (TaskVariableTypeEnum.valOf(globalParam.getType()) == TaskVariableTypeEnum.STRING) {
-                globalVarValueMap.put(globalParam.getName(), globalParam.getValue());
-            }
-        });
-        return globalVarValueMap;
-    }
-
 
     /**
      * 执行GSE任务

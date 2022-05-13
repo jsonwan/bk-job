@@ -46,8 +46,6 @@ import com.tencent.bk.job.execute.engine.util.JobSrcFileUtils;
 import com.tencent.bk.job.execute.engine.util.MacroUtil;
 import com.tencent.bk.job.execute.engine.util.NFSUtils;
 import com.tencent.bk.job.execute.model.AccountDTO;
-import com.tencent.bk.job.execute.model.FileDetailDTO;
-import com.tencent.bk.job.execute.model.FileSourceDTO;
 import com.tencent.bk.job.execute.model.GseTaskIpLogDTO;
 import com.tencent.bk.job.execute.model.GseTaskLogDTO;
 import com.tencent.bk.job.execute.model.StepInstanceDTO;
@@ -167,35 +165,10 @@ public class FileTaskExecutor extends AbstractGseTaskExecutor {
      * 解析源文件
      */
     private void parseSendFileList() {
-        resolveVariableForSourceFilePath(stepInstance.getFileSourceList(),
-            buildReferenceGlobalVarValueMap(stepInputVariables));
         sendFiles = JobSrcFileUtils.parseSendFileList(stepInstance, localAgentIp, fileStorageRootPath);
         setAccountInfoForSourceFiles(sendFiles);
         // 初始化显示名称映射Map
         sourceFileDisplayMap = JobSrcFileUtils.buildSourceFileDisplayMapping(sendFiles, localUploadDir);
-    }
-
-    private void resolveVariableForSourceFilePath(List<FileSourceDTO> fileSources,
-                                                  Map<String, String> stepInputGlobalVariableValueMap) {
-        if (stepInputGlobalVariableValueMap == null || stepInputGlobalVariableValueMap.isEmpty()) {
-            return;
-        }
-        boolean isContainsVar = false;
-        for (FileSourceDTO fileSource : fileSources) {
-            if (CollectionUtils.isNotEmpty(fileSource.getFiles())) {
-                for (FileDetailDTO file : fileSource.getFiles()) {
-                    String resolvedFilePath = VariableValueResolver.resolve(file.getFilePath(),
-                        stepInputGlobalVariableValueMap);
-                    if (!resolvedFilePath.equals(file.getFilePath())) {
-                        file.setResolvedFilePath(resolvedFilePath);
-                        isContainsVar = true;
-                    }
-                }
-            }
-        }
-        if (isContainsVar) {
-            taskInstanceService.updateResolvedSourceFile(stepInstance.getId(), stepInstance.getFileSourceList());
-        }
     }
 
     private void setAccountInfoForSourceFiles(Set<JobFile> sendFiles) {
@@ -295,7 +268,7 @@ public class FileTaskExecutor extends AbstractGseTaskExecutor {
      */
     private void resolvedTargetPathWithVariable() {
         String resolvedTargetPath = VariableValueResolver.resolve(stepInstance.getFileTargetPath(),
-            buildReferenceGlobalVarValueMap(stepInputVariables));
+            variableManager.buildReferenceGlobalVarValueMap(stepInputVariables));
         resolvedTargetPath = MacroUtil.resolveDateWithStrfTime(resolvedTargetPath);
         stepInstance.setResolvedFileTargetPath(resolvedTargetPath);
         if (!resolvedTargetPath.equals(stepInstance.getFileTargetPath())) {

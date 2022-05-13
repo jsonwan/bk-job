@@ -46,6 +46,7 @@ import com.tencent.bk.job.execute.engine.result.ResultHandleManager;
 import com.tencent.bk.job.execute.engine.result.ha.ResultHandleTaskKeepaliveManager;
 import com.tencent.bk.job.execute.engine.util.RunningTaskCounter;
 import com.tencent.bk.job.execute.engine.variable.JobBuildInVariableResolver;
+import com.tencent.bk.job.execute.engine.variable.VariableManager;
 import com.tencent.bk.job.execute.model.GseTaskIpLogDTO;
 import com.tencent.bk.job.execute.model.GseTaskLogDTO;
 import com.tencent.bk.job.execute.model.StepInstanceDTO;
@@ -107,6 +108,7 @@ public class GseTaskManager implements SmartLifecycle {
     private final Object lifecycleMonitor = new Object();
     private final RunningTaskCounter<String> counter = new RunningTaskCounter<>("GseTask-Counter");
     private final TaskEvictPolicyExecutor taskEvictPolicyExecutor;
+    private final VariableManager variableManager;
     /**
      * 正在执行中的任务
      */
@@ -162,7 +164,8 @@ public class GseTaskManager implements SmartLifecycle {
                           Tracing tracing,
                           ExecuteMonitor executeMonitor,
                           JobExecuteConfig jobExecuteConfig,
-                          TaskEvictPolicyExecutor taskEvictPolicyExecutor) {
+                          TaskEvictPolicyExecutor taskEvictPolicyExecutor,
+                          VariableManager variableManager) {
         this.resultHandleManager = resultHandleManager;
         this.taskInstanceService = taskInstanceService;
         this.gseTaskLogService = gseTaskLogService;
@@ -182,6 +185,7 @@ public class GseTaskManager implements SmartLifecycle {
         this.executeMonitor = executeMonitor;
         this.jobExecuteConfig = jobExecuteConfig;
         this.taskEvictPolicyExecutor = taskEvictPolicyExecutor;
+        this.variableManager = variableManager;
     }
 
     /**
@@ -374,7 +378,8 @@ public class GseTaskManager implements SmartLifecycle {
             taskManager,
             resultHandleTaskKeepaliveManager,
             executeMonitor,
-            jobExecuteConfig
+            jobExecuteConfig,
+            variableManager
         );
         gseTaskExecutor.setExceptionStatusManager(exceptionStatusManager);
         gseTaskExecutor.setTaskEvictPolicyExecutor(taskEvictPolicyExecutor);

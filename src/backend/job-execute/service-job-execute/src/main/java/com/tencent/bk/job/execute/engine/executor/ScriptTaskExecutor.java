@@ -199,7 +199,7 @@ public class ScriptTaskExecutor extends AbstractGseTaskExecutor {
         }
 
         String resolvedScriptParam = VariableValueResolver.resolve(scriptParam,
-            buildReferenceGlobalVarValueMap(stepInputVariables));
+            variableManager.buildReferenceGlobalVarValueMap(stepInputVariables));
         resolvedScriptParam = resolvedScriptParam.replace("\n", " ");
         log.info("Origin script param:{}, resolved script param:{}", scriptParam, resolvedScriptParam);
         updateResolvedScriptParamIfNecessary(scriptParam, resolvedScriptParam);

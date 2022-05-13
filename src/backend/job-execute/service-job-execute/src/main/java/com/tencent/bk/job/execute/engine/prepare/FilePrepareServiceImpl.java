@@ -25,16 +25,20 @@
 package com.tencent.bk.job.execute.engine.prepare;
 
 import com.tencent.bk.job.execute.common.constants.RunStatusEnum;
+import com.tencent.bk.job.execute.common.util.VariableValueResolver;
 import com.tencent.bk.job.execute.engine.TaskExecuteControlMsgSender;
 import com.tencent.bk.job.execute.engine.prepare.local.LocalFilePrepareService;
 import com.tencent.bk.job.execute.engine.prepare.local.LocalFilePrepareTaskResultHandler;
 import com.tencent.bk.job.execute.engine.prepare.third.ThirdFilePrepareService;
 import com.tencent.bk.job.execute.engine.prepare.third.ThirdFilePrepareTaskResultHandler;
 import com.tencent.bk.job.execute.engine.result.ResultHandleManager;
+import com.tencent.bk.job.execute.engine.variable.VariableManager;
+import com.tencent.bk.job.execute.model.FileDetailDTO;
 import com.tencent.bk.job.execute.model.FileSourceDTO;
 import com.tencent.bk.job.execute.model.StepInstanceDTO;
 import com.tencent.bk.job.execute.service.TaskInstanceService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.helpers.FormattingTuple;
 import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +48,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -58,6 +63,7 @@ public class FilePrepareServiceImpl implements FilePrepareService {
     private final TaskInstanceService taskInstanceService;
     private final TaskExecuteControlMsgSender taskControlMsgSender;
     private final ResultHandleManager resultHandleManager;
+    private final VariableManager variableManager;
 
     @Autowired
     public FilePrepareServiceImpl(
@@ -65,12 +71,14 @@ public class FilePrepareServiceImpl implements FilePrepareService {
         ThirdFilePrepareService thirdFilePrepareService,
         TaskInstanceService taskInstanceService,
         TaskExecuteControlMsgSender taskControlMsgSender,
-        ResultHandleManager resultHandleManager) {
+        ResultHandleManager resultHandleManager,
+        VariableManager variableManager) {
         this.localFilePrepareService = localFilePrepareService;
         this.thirdFilePrepareService = thirdFilePrepareService;
         this.taskInstanceService = taskInstanceService;
         this.taskControlMsgSender = taskControlMsgSender;
         this.resultHandleManager = resultHandleManager;
+        this.variableManager = variableManager;
     }
 
     @Override
@@ -166,9 +174,41 @@ public class FilePrepareServiceImpl implements FilePrepareService {
         );
     }
 
+    /**
+     * 对源文件路径中的变量进行解析
+     *
+     * @param stepInstance                    步骤实例
+     * @param stepInputGlobalVariableValueMap 步骤输入变量Map
+     */
+    private void resolveVariableForSourceFilePath(StepInstanceDTO stepInstance,
+                                                  Map<String, String> stepInputGlobalVariableValueMap) {
+        List<FileSourceDTO> fileSources = stepInstance.getFileSourceList();
+        if (stepInputGlobalVariableValueMap == null || stepInputGlobalVariableValueMap.isEmpty()) {
+            return;
+        }
+        boolean isContainsVar = false;
+        for (FileSourceDTO fileSource : fileSources) {
+            if (CollectionUtils.isNotEmpty(fileSource.getFiles())) {
+                for (FileDetailDTO file : fileSource.getFiles()) {
+                    String resolvedFilePath = VariableValueResolver.resolve(file.getFilePath(),
+                        stepInputGlobalVariableValueMap);
+                    if (!resolvedFilePath.equals(file.getFilePath())) {
+                        file.setResolvedFilePath(resolvedFilePath);
+                        isContainsVar = true;
+                    }
+                }
+            }
+        }
+        if (isContainsVar) {
+            taskInstanceService.updateResolvedSourceFile(stepInstance.getId(), stepInstance.getFileSourceList());
+        }
+    }
+
     @Override
     public void prepareFileForGseTask(long stepInstanceId) {
         StepInstanceDTO stepInstance = taskInstanceService.getStepInstanceDetail(stepInstanceId);
+        // 解析文件路径中的变量
+        resolveVariableForSourceFilePath(stepInstance, variableManager.buildReferenceGlobalVarValueMap(stepInstance));
         List<FileSourceDTO> fileSourceList = stepInstance.getFileSourceList();
         if (fileSourceList == null) {
             log.warn("stepInstanceId={},fileSourceList is null", stepInstanceId);
