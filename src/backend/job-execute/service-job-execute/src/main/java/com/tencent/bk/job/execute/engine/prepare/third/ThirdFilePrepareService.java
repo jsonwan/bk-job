@@ -228,7 +228,7 @@ public class ThirdFilePrepareService {
                         .destFile(
                             PathUtil.joinFilePath(
                                 stepInstanceDTO.getResolvedFileTargetPath(),
-                                stepInstanceDTO.getFileTargetName()
+                                PathUtil.getFileNameByPath(fileDetail.getResolvedFilePath())
                             )
                         )
                         .srcIp(thirdFileSourceAddr)
