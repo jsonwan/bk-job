@@ -189,14 +189,15 @@ public class FilePrepareServiceImpl implements FilePrepareService {
         }
         boolean isContainsVar = false;
         for (FileSourceDTO fileSource : fileSources) {
-            if (CollectionUtils.isNotEmpty(fileSource.getFiles())) {
-                for (FileDetailDTO file : fileSource.getFiles()) {
-                    String resolvedFilePath = VariableValueResolver.resolve(file.getFilePath(),
-                        stepInputGlobalVariableValueMap);
-                    if (!resolvedFilePath.equals(file.getFilePath())) {
-                        file.setResolvedFilePath(resolvedFilePath);
-                        isContainsVar = true;
-                    }
+            if (CollectionUtils.isEmpty(fileSource.getFiles())) {
+                continue;
+            }
+            for (FileDetailDTO file : fileSource.getFiles()) {
+                String resolvedFilePath = VariableValueResolver.resolve(file.getFilePath(),
+                    stepInputGlobalVariableValueMap);
+                if (!resolvedFilePath.equals(file.getFilePath())) {
+                    file.setResolvedFilePath(resolvedFilePath);
+                    isContainsVar = true;
                 }
             }
         }
@@ -213,9 +214,7 @@ public class FilePrepareServiceImpl implements FilePrepareService {
             variableManager.buildReferenceGlobalVarValueMap(stepInstance));
         resolvedTargetPath = MacroUtil.resolveDateWithStrfTime(resolvedTargetPath);
         stepInstance.setResolvedFileTargetPath(resolvedTargetPath);
-        if (!resolvedTargetPath.equals(stepInstance.getFileTargetPath())) {
-            taskInstanceService.updateResolvedTargetPath(stepInstance.getId(), resolvedTargetPath);
-        }
+        taskInstanceService.updateResolvedTargetPath(stepInstance.getId(), resolvedTargetPath);
     }
 
     @Override

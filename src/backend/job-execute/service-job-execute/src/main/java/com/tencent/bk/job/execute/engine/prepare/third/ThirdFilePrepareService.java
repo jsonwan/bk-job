@@ -225,7 +225,12 @@ public class ThirdFilePrepareService {
                     ServiceFileTaskLogDTO serviceFileTaskLog = ServiceFileTaskLogDTO.builder()
                         .mode(FileDistModeEnum.DOWNLOAD.getValue())
                         .destIp(fileTargetIp)
-                        .destFile(stepInstanceDTO.getResolvedFileTargetPath())
+                        .destFile(
+                            PathUtil.joinFilePath(
+                                stepInstanceDTO.getResolvedFileTargetPath(),
+                                stepInstanceDTO.getFileTargetName()
+                            )
+                        )
                         .srcIp(thirdFileSourceAddr)
                         .displaySrcIp(thirdFileSourceAddr)
                         .srcFile(fileDetail.getResolvedFilePath())
