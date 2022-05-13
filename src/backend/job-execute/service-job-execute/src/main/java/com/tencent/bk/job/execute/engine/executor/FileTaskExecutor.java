@@ -31,7 +31,6 @@ import com.tencent.bk.job.common.constant.NotExistPathHandlerEnum;
 import com.tencent.bk.job.execute.common.constants.FileDistModeEnum;
 import com.tencent.bk.job.execute.common.constants.FileDistStatusEnum;
 import com.tencent.bk.job.execute.common.constants.StepExecuteTypeEnum;
-import com.tencent.bk.job.execute.common.util.VariableValueResolver;
 import com.tencent.bk.job.execute.engine.consts.FileDirTypeConf;
 import com.tencent.bk.job.execute.engine.consts.IpStatus;
 import com.tencent.bk.job.execute.engine.gse.GseRequestUtils;
@@ -43,7 +42,6 @@ import com.tencent.bk.job.execute.engine.result.FileResultHandleTask;
 import com.tencent.bk.job.execute.engine.util.FilePathUtils;
 import com.tencent.bk.job.execute.engine.util.IpHelper;
 import com.tencent.bk.job.execute.engine.util.JobSrcFileUtils;
-import com.tencent.bk.job.execute.engine.util.MacroUtil;
 import com.tencent.bk.job.execute.engine.util.NFSUtils;
 import com.tencent.bk.job.execute.model.AccountDTO;
 import com.tencent.bk.job.execute.model.GseTaskIpLogDTO;
@@ -117,7 +115,6 @@ public class FileTaskExecutor extends AbstractGseTaskExecutor {
         super.initExecutionContext();
         // 解析文件传输的源文件, 得到List<IJobsFile>
         parseSendFileList();
-        resolvedTargetPathWithVariable();
         initSourceServerIp();
         initAndSaveGseIpLogsToBeStarted();
     }
@@ -261,19 +258,6 @@ public class FileTaskExecutor extends AbstractGseTaskExecutor {
     private void writeLogs(Map<String, ServiceIpLogDTO> executionLogs) {
         log.debug("Write file task initial logs, executionLogs: {}", executionLogs);
         logService.writeFileLogs(taskInstance.getCreateTime(), new ArrayList<>(executionLogs.values()));
-    }
-
-    /*
-     * 解析文件分发目标路径，替换变量
-     */
-    private void resolvedTargetPathWithVariable() {
-        String resolvedTargetPath = VariableValueResolver.resolve(stepInstance.getFileTargetPath(),
-            variableManager.buildReferenceGlobalVarValueMap(stepInputVariables));
-        resolvedTargetPath = MacroUtil.resolveDateWithStrfTime(resolvedTargetPath);
-        stepInstance.setResolvedFileTargetPath(resolvedTargetPath);
-        if (!resolvedTargetPath.equals(stepInstance.getFileTargetPath())) {
-            taskInstanceService.updateResolvedTargetPath(stepInstance.getId(), resolvedTargetPath);
-        }
     }
 
     @Override

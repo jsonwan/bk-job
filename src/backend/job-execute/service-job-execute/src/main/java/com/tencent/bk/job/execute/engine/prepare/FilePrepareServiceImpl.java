@@ -32,6 +32,7 @@ import com.tencent.bk.job.execute.engine.prepare.local.LocalFilePrepareTaskResul
 import com.tencent.bk.job.execute.engine.prepare.third.ThirdFilePrepareService;
 import com.tencent.bk.job.execute.engine.prepare.third.ThirdFilePrepareTaskResultHandler;
 import com.tencent.bk.job.execute.engine.result.ResultHandleManager;
+import com.tencent.bk.job.execute.engine.util.MacroUtil;
 import com.tencent.bk.job.execute.engine.variable.VariableManager;
 import com.tencent.bk.job.execute.model.FileDetailDTO;
 import com.tencent.bk.job.execute.model.FileSourceDTO;
@@ -204,11 +205,25 @@ public class FilePrepareServiceImpl implements FilePrepareService {
         }
     }
 
+    /*
+     * 解析文件分发目标路径，替换变量
+     */
+    private void resolvedTargetPathWithVariable(StepInstanceDTO stepInstance) {
+        String resolvedTargetPath = VariableValueResolver.resolve(stepInstance.getFileTargetPath(),
+            variableManager.buildReferenceGlobalVarValueMap(stepInstance));
+        resolvedTargetPath = MacroUtil.resolveDateWithStrfTime(resolvedTargetPath);
+        stepInstance.setResolvedFileTargetPath(resolvedTargetPath);
+        if (!resolvedTargetPath.equals(stepInstance.getFileTargetPath())) {
+            taskInstanceService.updateResolvedTargetPath(stepInstance.getId(), resolvedTargetPath);
+        }
+    }
+
     @Override
     public void prepareFileForGseTask(long stepInstanceId) {
         StepInstanceDTO stepInstance = taskInstanceService.getStepInstanceDetail(stepInstanceId);
         // 解析文件路径中的变量
         resolveVariableForSourceFilePath(stepInstance, variableManager.buildReferenceGlobalVarValueMap(stepInstance));
+        resolvedTargetPathWithVariable(stepInstance);
         List<FileSourceDTO> fileSourceList = stepInstance.getFileSourceList();
         if (fileSourceList == null) {
             log.warn("stepInstanceId={},fileSourceList is null", stepInstanceId);

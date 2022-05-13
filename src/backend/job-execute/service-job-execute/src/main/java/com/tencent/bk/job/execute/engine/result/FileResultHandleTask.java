@@ -976,6 +976,7 @@ public class FileResultHandleTask extends AbstractResultHandleTask<api_map_rsp> 
                     .destIp(taskResult.getDestCloudIp())
                     .destFile(taskResult.getStandardDestFilePath())
                     .srcIp(taskResult.getSourceCloudIp())
+                    // TODO:源服务器IP隐藏
                     .displaySrcIp(taskResult.getSourceCloudIp())
                     .srcFile(null)
                     .displaySrcFile(null)
@@ -993,6 +994,7 @@ public class FileResultHandleTask extends AbstractResultHandleTask<api_map_rsp> 
                     .destIp(null)
                     .destFile(null)
                     .srcIp(taskResult.getSourceCloudIp())
+                    // TODO:源服务器IP隐藏
                     .displaySrcIp(taskResult.getSourceCloudIp())
                     .srcFile(filePath)
                     .displaySrcFile(displayFilePath)
