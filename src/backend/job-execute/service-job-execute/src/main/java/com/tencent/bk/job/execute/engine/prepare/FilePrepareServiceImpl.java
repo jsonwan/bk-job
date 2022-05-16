@@ -24,9 +24,11 @@
 
 package com.tencent.bk.job.execute.engine.prepare;
 
+import com.tencent.bk.job.common.model.dto.IpDTO;
 import com.tencent.bk.job.execute.common.constants.RunStatusEnum;
 import com.tencent.bk.job.execute.common.util.VariableValueResolver;
 import com.tencent.bk.job.execute.engine.TaskExecuteControlMsgSender;
+import com.tencent.bk.job.execute.engine.consts.IpStatus;
 import com.tencent.bk.job.execute.engine.prepare.local.LocalFilePrepareService;
 import com.tencent.bk.job.execute.engine.prepare.local.LocalFilePrepareTaskResultHandler;
 import com.tencent.bk.job.execute.engine.prepare.third.ThirdFilePrepareService;
@@ -36,7 +38,10 @@ import com.tencent.bk.job.execute.engine.util.MacroUtil;
 import com.tencent.bk.job.execute.engine.variable.VariableManager;
 import com.tencent.bk.job.execute.model.FileDetailDTO;
 import com.tencent.bk.job.execute.model.FileSourceDTO;
+import com.tencent.bk.job.execute.model.GseTaskIpLogDTO;
+import com.tencent.bk.job.execute.model.ServersDTO;
 import com.tencent.bk.job.execute.model.StepInstanceDTO;
+import com.tencent.bk.job.execute.service.GseTaskLogService;
 import com.tencent.bk.job.execute.service.TaskInstanceService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -65,6 +70,7 @@ public class FilePrepareServiceImpl implements FilePrepareService {
     private final TaskExecuteControlMsgSender taskControlMsgSender;
     private final ResultHandleManager resultHandleManager;
     private final VariableManager variableManager;
+    private final GseTaskLogService gseTaskLogService;
 
     @Autowired
     public FilePrepareServiceImpl(
@@ -73,13 +79,15 @@ public class FilePrepareServiceImpl implements FilePrepareService {
         TaskInstanceService taskInstanceService,
         TaskExecuteControlMsgSender taskControlMsgSender,
         ResultHandleManager resultHandleManager,
-        VariableManager variableManager) {
+        VariableManager variableManager,
+        GseTaskLogService gseTaskLogService) {
         this.localFilePrepareService = localFilePrepareService;
         this.thirdFilePrepareService = thirdFilePrepareService;
         this.taskInstanceService = taskInstanceService;
         this.taskControlMsgSender = taskControlMsgSender;
         this.resultHandleManager = resultHandleManager;
         this.variableManager = variableManager;
+        this.gseTaskLogService = gseTaskLogService;
     }
 
     @Override
@@ -339,7 +347,37 @@ public class FilePrepareServiceImpl implements FilePrepareService {
         // taskControlMsgSender.continueGseFileStep(stepInstance.getId());
     }
 
+    private List<GseTaskIpLogDTO> buildPrepareFailedLogs(StepInstanceDTO stepInstance,
+                                                         FilePrepareTaskResult finalResult) {
+        List<GseTaskIpLogDTO> failedLogs = new ArrayList<>();
+        ServersDTO targetServers = stepInstance.getTargetServers();
+        if (targetServers == null || targetServers.isEmpty()) {
+            return failedLogs;
+        }
+        List<IpDTO> ipList = targetServers.getIpList();
+        for (IpDTO ipDTO : ipList) {
+            GseTaskIpLogDTO ipLogDTO = new GseTaskIpLogDTO();
+            ipLogDTO.setStepInstanceId(stepInstance.getId());
+            ipLogDTO.setExecuteCount(stepInstance.getExecuteCount());
+            ipLogDTO.setCloudAreaAndIp(ipDTO.convertToStrIp());
+            ipLogDTO.setIp(ipDTO.getIp());
+            ipLogDTO.setTargetServer(true);
+            ipLogDTO.setSourceServer(false);
+            ipLogDTO.setCloudAreaId(ipDTO.getCloudAreaId());
+            ipLogDTO.setDisplayIp(ipDTO.getIp());
+            // TODO:status整合细化
+            ipLogDTO.setStatus(IpStatus.LOCAL_OR_THIRD_FILE_PREPARE_FAILED.getValue());
+            ipLogDTO.setStartTime(stepInstance.getStartTime());
+            ipLogDTO.setEndTime(System.currentTimeMillis());
+            ipLogDTO.setTotalTime(ipLogDTO.getEndTime() - ipLogDTO.getStartTime());
+            failedLogs.add(ipLogDTO);
+        }
+        return failedLogs;
+    }
+
     private void onFailed(StepInstanceDTO stepInstance, FilePrepareTaskResult finalResult) {
+        // 设置IP失败状态，生成失败日志
+        gseTaskLogService.batchSaveIpLog(buildPrepareFailedLogs(stepInstance, finalResult));
         // 文件源文件下载失败
         taskInstanceService.updateStepStatus(stepInstance.getId(), RunStatusEnum.FAIL.getValue());
         taskControlMsgSender.refreshTask(stepInstance.getTaskInstanceId());

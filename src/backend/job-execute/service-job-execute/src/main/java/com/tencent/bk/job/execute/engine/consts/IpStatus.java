@@ -98,9 +98,29 @@ public enum IpStatus {
      */
     COPYFILE_FAILED(202),
     /**
-     * 源文件不存在
+     * 服务器文件不存在
      */
     COPYFILE_SOURCE_FILE_NOT_EXIST(203),
+    /**
+     * 本地文件不存在
+     */
+    LOCAL_FILE_NOT_EXIST(204),
+    /**
+     * 本地文件准备失败
+     */
+    LOCAL_FILE_PREPARE_FAILED(205),
+    /**
+     * 第三方源文件不存在
+     */
+    THIRD_FILE_NOT_EXIST(206),
+    /**
+     * 第三方源文件准备失败
+     */
+    THIRD_FILE_PREPARE_FAILED(207),
+    /**
+     * 本地文件/第三方源文件准备失败
+     */
+    LOCAL_OR_THIRD_FILE_PREPARE_FAILED(208),
     /**
      * 文件任务系统错误-未分类的
      */
