@@ -195,8 +195,8 @@ public class FilePrepareServiceImpl implements FilePrepareService {
             for (FileDetailDTO file : fileSource.getFiles()) {
                 String resolvedFilePath = VariableValueResolver.resolve(file.getFilePath(),
                     stepInputGlobalVariableValueMap);
+                file.setResolvedFilePath(resolvedFilePath);
                 if (!resolvedFilePath.equals(file.getFilePath())) {
-                    file.setResolvedFilePath(resolvedFilePath);
                     isContainsVar = true;
                 }
             }
