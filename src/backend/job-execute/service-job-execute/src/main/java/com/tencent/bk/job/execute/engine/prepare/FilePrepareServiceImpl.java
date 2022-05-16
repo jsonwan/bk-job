@@ -39,6 +39,7 @@ import com.tencent.bk.job.execute.engine.variable.VariableManager;
 import com.tencent.bk.job.execute.model.FileDetailDTO;
 import com.tencent.bk.job.execute.model.FileSourceDTO;
 import com.tencent.bk.job.execute.model.GseTaskIpLogDTO;
+import com.tencent.bk.job.execute.model.GseTaskLogDTO;
 import com.tencent.bk.job.execute.model.ServersDTO;
 import com.tencent.bk.job.execute.model.StepInstanceDTO;
 import com.tencent.bk.job.execute.service.GseTaskLogService;
@@ -347,8 +348,20 @@ public class FilePrepareServiceImpl implements FilePrepareService {
         // taskControlMsgSender.continueGseFileStep(stepInstance.getId());
     }
 
-    private List<GseTaskIpLogDTO> buildPrepareFailedLogs(StepInstanceDTO stepInstance,
-                                                         FilePrepareTaskResult finalResult) {
+    private GseTaskLogDTO buildPrepareFailedLog(StepInstanceDTO stepInstance) {
+        GseTaskLogDTO taskLog = new GseTaskLogDTO();
+        taskLog.setStepInstanceId(stepInstance.getId());
+        taskLog.setExecuteCount(stepInstance.getExecuteCount());
+        taskLog.setStartTime(stepInstance.getStartTime());
+        taskLog.setEndTime(stepInstance.getEndTime());
+        taskLog.setTotalTime(taskLog.getEndTime() - taskLog.getStartTime());
+        taskLog.setStatus(RunStatusEnum.FAIL.getValue());
+        taskLog.setGseTaskId("");
+        return taskLog;
+    }
+
+    private List<GseTaskIpLogDTO> buildPrepareFailedIpLogs(StepInstanceDTO stepInstance,
+                                                           FilePrepareTaskResult finalResult) {
         List<GseTaskIpLogDTO> failedLogs = new ArrayList<>();
         ServersDTO targetServers = stepInstance.getTargetServers();
         if (targetServers == null || targetServers.isEmpty()) {
@@ -377,7 +390,8 @@ public class FilePrepareServiceImpl implements FilePrepareService {
 
     private void onFailed(StepInstanceDTO stepInstance, FilePrepareTaskResult finalResult) {
         // 设置IP失败状态，生成失败日志
-        gseTaskLogService.batchSaveIpLog(buildPrepareFailedLogs(stepInstance, finalResult));
+        gseTaskLogService.saveGseTaskLog(buildPrepareFailedLog(stepInstance));
+        gseTaskLogService.batchSaveIpLog(buildPrepareFailedIpLogs(stepInstance, finalResult));
         // 文件源文件下载失败
         taskInstanceService.updateStepStatus(stepInstance.getId(), RunStatusEnum.FAIL.getValue());
         taskControlMsgSender.refreshTask(stepInstance.getTaskInstanceId());
