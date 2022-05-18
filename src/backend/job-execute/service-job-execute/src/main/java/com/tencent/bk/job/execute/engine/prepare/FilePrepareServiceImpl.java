@@ -193,9 +193,6 @@ public class FilePrepareServiceImpl implements FilePrepareService {
     private void resolveVariableForSourceFilePath(StepInstanceDTO stepInstance,
                                                   Map<String, String> stepInputGlobalVariableValueMap) {
         List<FileSourceDTO> fileSources = stepInstance.getFileSourceList();
-        if (stepInputGlobalVariableValueMap == null || stepInputGlobalVariableValueMap.isEmpty()) {
-            return;
-        }
         boolean isContainsVar = false;
         for (FileSourceDTO fileSource : fileSources) {
             if (CollectionUtils.isEmpty(fileSource.getFiles())) {
