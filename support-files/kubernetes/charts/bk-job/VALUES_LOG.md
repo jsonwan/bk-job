@@ -21,6 +21,13 @@ manageConfig:
       # 当环境中主机事件平均产生速率较高（>10/s）或主机信息相比于CMDB数据经常性明显滞后（分钟级）时，可增大该数值
       handlerNum: 3
 ```
+2.增加文档中心与问题反馈URL配置项
+```shell script
+# 文档中心 url
+bkDocsCenterUrl: "https://bk.tencent.com/docs"
+# 问题反馈 url
+bkFeedBackUrl: "https://bk.tencent.com/s-mart/community"
+```
 
 ## 0.3.0-rc.46
 1.增加服务启动顺序控制相关配置
