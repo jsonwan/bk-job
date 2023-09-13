@@ -625,23 +625,14 @@ tls:
 Return the Job Service Probes Config
 */}}
 {{- define "job.service.probes" -}}
-startupProbe:
-  httpGet:
-    path: /actuator/health/liveness
-    port: {{ .port }}
-  initialDelaySeconds: 10
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 30
-  successThreshold: 1
 livenessProbe:
   httpGet:
     path: /actuator/health/liveness
     port: {{ .port }}
-  initialDelaySeconds: 10
-  periodSeconds: 10
+  initialDelaySeconds: 60
+  periodSeconds: 5
   timeoutSeconds: 5
-  failureThreshold: 2
+  failureThreshold: 30
   successThreshold: 1
 readinessProbe:
   httpGet:
