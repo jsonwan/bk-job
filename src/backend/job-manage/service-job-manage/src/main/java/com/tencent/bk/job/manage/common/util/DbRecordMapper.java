@@ -32,6 +32,7 @@ import com.tencent.bk.job.common.util.json.JsonUtils;
 import com.tencent.bk.job.manage.common.consts.script.ScriptTypeEnum;
 import com.tencent.bk.job.manage.common.consts.task.TaskApprovalTypeEnum;
 import com.tencent.bk.job.manage.common.consts.task.TaskFileTypeEnum;
+import com.tencent.bk.job.manage.common.consts.task.TaskPlanTypeEnum;
 import com.tencent.bk.job.manage.common.consts.task.TaskScriptSourceEnum;
 import com.tencent.bk.job.manage.common.consts.task.TaskStepTypeEnum;
 import com.tencent.bk.job.manage.common.consts.task.TaskTemplateStatusEnum;
@@ -45,15 +46,16 @@ import com.tencent.bk.job.manage.model.dto.task.TaskScriptStepDTO;
 import com.tencent.bk.job.manage.model.dto.task.TaskStepDTO;
 import com.tencent.bk.job.manage.model.dto.task.TaskTargetDTO;
 import com.tencent.bk.job.manage.model.dto.task.TaskTemplateInfoDTO;
+import com.tencent.bk.job.manage.model.tables.TaskPlan;
+import com.tencent.bk.job.manage.model.tables.TaskTemplate;
+import com.tencent.bk.job.manage.model.tables.TaskTemplateStepFileList;
 import lombok.extern.slf4j.Slf4j;
+import org.jooq.Record;
 import org.jooq.Record11;
 import org.jooq.Record13;
 import org.jooq.Record15;
 import org.jooq.Record6;
 import org.jooq.Record9;
-import org.jooq.generated.tables.TaskPlan;
-import org.jooq.generated.tables.TaskTemplate;
-import org.jooq.generated.tables.TaskTemplateStepFileList;
 import org.jooq.types.UByte;
 import org.jooq.types.ULong;
 
@@ -279,7 +281,7 @@ public class DbRecordMapper {
         taskPlanInfo.setId(record.get(table.ID).longValue());
         taskPlanInfo.setAppId(record.get(table.APP_ID).longValue());
         taskPlanInfo.setTemplateId(record.get(table.TEMPLATE_ID).longValue());
-        taskPlanInfo.setDebug(record.get(table.TYPE).intValue() == 1);
+        taskPlanInfo.setDebug(isDebugPlan(record));
         taskPlanInfo.setName(record.get(table.NAME));
         taskPlanInfo.setCreator(record.get(table.CREATOR));
         taskPlanInfo.setCreateTime(record.get(table.CREATE_TIME).longValue());
@@ -304,7 +306,11 @@ public class DbRecordMapper {
         taskPlanBasicInfoDTO.setVersion(record.get(table.VERSION));
         taskPlanBasicInfoDTO.setAppId(record.get(table.APP_ID).longValue());
         taskPlanBasicInfoDTO.setTemplateId(record.get(table.TEMPLATE_ID).longValue());
-        taskPlanBasicInfoDTO.setDebug(record.get(table.TYPE).intValue() == 1);
+        taskPlanBasicInfoDTO.setDebug(isDebugPlan(record));
         return taskPlanBasicInfoDTO;
+    }
+
+    private static boolean isDebugPlan(Record record) {
+        return record.get(TaskPlan.TASK_PLAN.TYPE).intValue() == TaskPlanTypeEnum.DEBUG.getValue();
     }
 }

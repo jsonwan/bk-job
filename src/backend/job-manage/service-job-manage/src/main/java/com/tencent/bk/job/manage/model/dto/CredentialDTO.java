@@ -26,7 +26,9 @@ package com.tencent.bk.job.manage.model.dto;
 
 import com.tencent.bk.job.common.model.dto.CommonCredential;
 import com.tencent.bk.job.manage.common.consts.CredentialTypeEnum;
+import com.tencent.bk.job.manage.model.esb.v3.response.EsbCredentialSimpleInfoV3DTO;
 import com.tencent.bk.job.manage.model.inner.resp.ServiceCredentialDTO;
+import com.tencent.bk.job.manage.model.web.vo.CredentialBasicVO;
 import com.tencent.bk.job.manage.model.web.vo.CredentialVO;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -98,6 +100,13 @@ public class CredentialDTO {
         return credentialVO;
     }
 
+    public CredentialBasicVO toBasicVO() {
+        CredentialBasicVO credentialBasicVO = new CredentialBasicVO();
+        credentialBasicVO.setId(id);
+        credentialBasicVO.setName(name);
+        return credentialBasicVO;
+    }
+
     public ServiceCredentialDTO toServiceCredentialDTO() {
         ServiceCredentialDTO serviceCredentialDTO = new ServiceCredentialDTO();
         serviceCredentialDTO.setId(id);
@@ -106,6 +115,10 @@ public class CredentialDTO {
         serviceCredentialDTO.setType(type);
         serviceCredentialDTO.setCredential(credential);
         return serviceCredentialDTO;
+    }
+
+    public EsbCredentialSimpleInfoV3DTO toEsbCredentialSimpleInfoV3DTO() {
+        return new EsbCredentialSimpleInfoV3DTO(id, name);
     }
 
     public String getFirstValue() {

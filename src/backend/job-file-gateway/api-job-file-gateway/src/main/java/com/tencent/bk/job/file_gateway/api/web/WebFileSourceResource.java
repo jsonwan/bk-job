@@ -79,7 +79,7 @@ public interface WebFileSourceResource {
 
     @ApiOperation(value = "新增文件源", produces = "application/json")
     @PostMapping("")
-    Response<Integer> saveFileSource(
+    Response<FileSourceVO> saveFileSource(
         @ApiParam("用户名，网关自动传入")
         @RequestHeader("username")
             String username,
@@ -98,8 +98,8 @@ public interface WebFileSourceResource {
     );
 
     @ApiOperation(value = "更新文件源", produces = "application/json")
-    @PutMapping("")
-    Response<Integer> updateFileSource(
+    @PutMapping("/{id}")
+    Response<FileSourceVO> updateFileSource(
         @ApiParam("用户名，网关自动传入")
         @RequestHeader("username")
             String username,
@@ -112,6 +112,9 @@ public interface WebFileSourceResource {
         @ApiParam(value = "资源范围ID", required = true)
         @PathVariable(value = "scopeId")
             String scopeId,
+        @ApiParam(value = "文件源 ID", required = true)
+        @PathVariable("id")
+            Integer id,
         @ApiParam(value = "更新文件源请求")
         @RequestBody
             FileSourceCreateUpdateReq fileSourceCreateUpdateReq

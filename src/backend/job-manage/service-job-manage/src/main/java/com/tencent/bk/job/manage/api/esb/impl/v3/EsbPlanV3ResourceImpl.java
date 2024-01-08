@@ -24,20 +24,19 @@
 
 package com.tencent.bk.job.manage.api.esb.impl.v3;
 
+import com.tencent.bk.audit.annotations.AuditEntry;
+import com.tencent.bk.audit.annotations.AuditRequestBody;
 import com.tencent.bk.job.common.esb.metrics.EsbApiTimed;
 import com.tencent.bk.job.common.esb.model.EsbResp;
 import com.tencent.bk.job.common.esb.model.job.v3.EsbPageDataV3;
 import com.tencent.bk.job.common.esb.util.EsbDTOAppScopeMappingHelper;
-import com.tencent.bk.job.common.iam.exception.PermissionDeniedException;
-import com.tencent.bk.job.common.iam.model.AuthResult;
-import com.tencent.bk.job.common.iam.service.BusinessAuthService;
+import com.tencent.bk.job.common.iam.constant.ActionId;
 import com.tencent.bk.job.common.metrics.CommonMetricNames;
 import com.tencent.bk.job.common.model.BaseSearchCondition;
 import com.tencent.bk.job.common.model.PageData;
 import com.tencent.bk.job.common.model.ValidateResult;
 import com.tencent.bk.job.common.service.AppScopeMappingService;
 import com.tencent.bk.job.manage.api.esb.v3.EsbPlanV3Resource;
-import com.tencent.bk.job.manage.auth.PlanAuthService;
 import com.tencent.bk.job.manage.manager.variable.StepRefVariableParser;
 import com.tencent.bk.job.manage.model.dto.TaskPlanQueryDTO;
 import com.tencent.bk.job.manage.model.dto.task.TaskPlanInfoDTO;
@@ -58,22 +57,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class EsbPlanV3ResourceImpl implements EsbPlanV3Resource {
 
     private final TaskPlanService taskPlanService;
-    private final BusinessAuthService businessAuthService;
-    private final PlanAuthService planAuthService;
     private final AppScopeMappingService appScopeMappingService;
 
     @Autowired
     public EsbPlanV3ResourceImpl(TaskPlanService taskPlanService,
-                                 BusinessAuthService businessAuthService,
-                                 PlanAuthService planAuthService,
                                  AppScopeMappingService appScopeMappingService) {
         this.taskPlanService = taskPlanService;
-        this.businessAuthService = businessAuthService;
-        this.planAuthService = planAuthService;
         this.appScopeMappingService = appScopeMappingService;
     }
 
     @Override
+    @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v3_get_job_plan_list"})
     public EsbResp<EsbPageDataV3<EsbPlanBasicInfoV3DTO>> getPlanList(String username,
                                                                      String appCode,
                                                                      Long bizId,
@@ -90,8 +84,6 @@ public class EsbPlanV3ResourceImpl implements EsbPlanV3Resource {
                                                                      Integer start,
                                                                      Integer length) {
         EsbGetPlanListV3Request request = new EsbGetPlanListV3Request();
-        request.setUserName(username);
-        request.setAppCode(appCode);
         request.setBizId(bizId);
         request.setScopeType(scopeType);
         request.setScopeId(scopeId);
@@ -105,26 +97,32 @@ public class EsbPlanV3ResourceImpl implements EsbPlanV3Resource {
         request.setLastModifyTimeEnd(lastModifyTimeEnd);
         request.setStart(start);
         request.setLength(length);
-        return getPlanListUsingPost(request);
+        request.fillAppResourceScope(appScopeMappingService);
+        return getPlanListUsingPost(username, appCode, request);
     }
 
     @Override
-    public EsbResp<EsbPlanInfoV3DTO> getPlanDetail(String username, String appCode, Long bizId,
-                                                   String scopeType, String scopeId, Long planId) {
+    @AuditEntry(actionId = ActionId.VIEW_JOB_PLAN)
+    public EsbResp<EsbPlanInfoV3DTO> getPlanDetail(String username,
+                                                   String appCode,
+                                                   Long bizId,
+                                                   String scopeType,
+                                                   String scopeId,
+                                                   Long planId) {
         EsbGetPlanDetailV3Request request = new EsbGetPlanDetailV3Request();
-        request.setUserName(username);
-        request.setAppCode(appCode);
         request.setBizId(bizId);
         request.setScopeType(scopeType);
         request.setScopeId(scopeId);
         request.setPlanId(planId);
-        return getPlanDetailUsingPost(request);
+        request.fillAppResourceScope(appScopeMappingService);
+        return getPlanDetailUsingPost(username, appCode, request);
     }
 
     @Override
     @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v3_get_job_plan_list"})
-    public EsbResp<EsbPageDataV3<EsbPlanBasicInfoV3DTO>> getPlanListUsingPost(EsbGetPlanListV3Request request) {
-        request.fillAppResourceScope(appScopeMappingService);
+    public EsbResp<EsbPageDataV3<EsbPlanBasicInfoV3DTO>> getPlanListUsingPost(String username,
+                                                                              String appCode,
+                                                                              EsbGetPlanListV3Request request) {
         ValidateResult checkResult = checkRequest(request);
         if (!checkResult.isPass()) {
             log.warn("Get plan list, request is illegal!");
@@ -132,13 +130,6 @@ public class EsbPlanV3ResourceImpl implements EsbPlanV3Resource {
         }
 
         long appId = request.getAppId();
-
-        AuthResult authResult =
-            businessAuthService.authAccessBusiness(
-                request.getUserName(), request.getAppResourceScope());
-        if (!authResult.isPass()) {
-            throw new PermissionDeniedException(authResult);
-        }
 
         TaskPlanQueryDTO taskPlanQueryDTO = new TaskPlanQueryDTO();
         taskPlanQueryDTO.setAppId(appId);
@@ -173,29 +164,18 @@ public class EsbPlanV3ResourceImpl implements EsbPlanV3Resource {
 
     @Override
     @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v3_get_job_plan_detail"})
-    public EsbResp<EsbPlanInfoV3DTO> getPlanDetailUsingPost(EsbGetPlanDetailV3Request request) {
-        request.fillAppResourceScope(appScopeMappingService);
-        ValidateResult validateResult = request.validate();
-        if (validateResult.isPass()) {
-            TaskPlanInfoDTO taskPlanInfo = taskPlanService.getTaskPlanById(request.getAppId(), request.getPlanId());
-            if (taskPlanInfo != null) {
-                AuthResult authResult =
-                    planAuthService.authViewJobPlan(request.getUserName(),
-                        request.getAppResourceScope(),
-                        taskPlanInfo.getTemplateId(), request.getPlanId(), taskPlanInfo.getName());
-                if (!authResult.isPass()) {
-                    throw new PermissionDeniedException(authResult);
-                }
+    @AuditEntry(actionId = ActionId.VIEW_JOB_PLAN)
+    public EsbResp<EsbPlanInfoV3DTO> getPlanDetailUsingPost(String username,
+                                                            String appCode,
+                                                            @AuditRequestBody EsbGetPlanDetailV3Request request) {
+        request.validate();
 
-                // 解析步骤引用全局变量的信息
-                StepRefVariableParser.parseStepRefVars(taskPlanInfo.getStepList(), taskPlanInfo.getVariableList());
-                return EsbResp.buildSuccessResp(TaskPlanInfoDTO.toEsbPlanInfoV3(taskPlanInfo));
-            }
-            return EsbResp.buildSuccessResp(null);
-        } else {
-            log.warn("Get plan detail request is illegal!");
-            return EsbResp.buildCommonFailResp(validateResult);
-        }
+        TaskPlanInfoDTO taskPlanInfo = taskPlanService.getTaskPlan(username,
+            request.getAppId(), request.getPlanId());
+
+        // 解析步骤引用全局变量的信息
+        StepRefVariableParser.parseStepRefVars(taskPlanInfo.getStepList(), taskPlanInfo.getVariableList());
+        return EsbResp.buildSuccessResp(TaskPlanInfoDTO.toEsbPlanInfoV3(taskPlanInfo));
     }
 
     private ValidateResult checkRequest(EsbGetPlanListV3Request request) {

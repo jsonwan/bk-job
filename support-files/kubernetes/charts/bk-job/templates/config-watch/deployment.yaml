@@ -1,3 +1,4 @@
+{{- if .Values.k8sConfigWatcherConfig.enabled }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
@@ -29,6 +30,7 @@ spec:
         {{ include "job.labelKeys.jobScope" . }}: {{ include "job.labelValues.jobScope.backend" . }}
         {{ include "job.labelKeys.imageTag" . }}: {{ .Values.k8sConfigWatcherConfig.image.tag | quote }}
     spec:
+      {{- include "job.podTerminationGracePeriodSeconds" . | nindent 6 }}
       {{- include "job.imagePullSecrets" . | nindent 6 }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
       {{- if .Values.k8sConfigWatcherConfig.affinity }}
@@ -87,4 +89,5 @@ spec:
         - name: rabbitmq
           secret:
             secretName: {{ include "job.rabbitmq.secretName" . }}
+{{- end }}
 

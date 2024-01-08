@@ -25,17 +25,19 @@
 package com.tencent.bk.job.common.gse.v1;
 
 import com.tencent.bk.gse.cacheapi.CacheAPI;
-import com.tencent.bk.job.common.gse.config.GseProperties;
+import com.tencent.bk.job.common.gse.config.GseV1Properties;
 import com.tencent.bk.job.common.util.ArrayUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
+import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.layered.TFramedTransport;
 import org.slf4j.helpers.MessageFormatter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StopWatch;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -44,14 +46,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class GseCacheClientFactory {
 
     private static final AtomicInteger currentHostIndex = new AtomicInteger(0);
-    private final GseProperties gseProperties;
-    private final GseProperties.CacheApiServer.ApiServer cacheApiServerProperties;
+    private final GseV1Properties gseV1Properties;
+    private final GseV1Properties.CacheApiServer.ApiServer cacheApiServerProperties;
     private final String[] gseCacheApiServerHosts;
 
     @Autowired
-    public GseCacheClientFactory(GseProperties gseProperties) {
-        this.gseProperties = gseProperties;
-        this.cacheApiServerProperties = gseProperties.getCache().getApiServer();
+    public GseCacheClientFactory(GseV1Properties gseV1Properties) {
+        this.gseV1Properties = gseV1Properties;
+        this.cacheApiServerProperties = gseV1Properties.getCache().getApiServer();
         this.gseCacheApiServerHosts = this.cacheApiServerProperties.getHost().split(",");
     }
 
@@ -86,16 +88,38 @@ public class GseCacheClientFactory {
         TTransport tTransport;
         BKTSSLTransportFactory.TSSLTransportParameters params =
             new BKTSSLTransportFactory.TSSLTransportParameters();
-        params.setTrustStore(gseProperties.getSsl().getTrustStore().getPath(),
-            gseProperties.getSsl().getTrustStore().getPassword(),
-            gseProperties.getSsl().getTrustStore().getManagerType(),
-            gseProperties.getSsl().getTrustStore().getStoreType());
-        params.setKeyStore(gseProperties.getSsl().getKeyStore().getPath(),
-            gseProperties.getSsl().getKeyStore().getPassword());
-        tTransport = new TFramedTransport(BKTSSLTransportFactory.getClientSocket(ip, port, 15000, params));
+        params.setTrustStore(gseV1Properties.getSsl().getTrustStore().getPath(),
+            gseV1Properties.getSsl().getTrustStore().getPassword(),
+            gseV1Properties.getSsl().getTrustStore().getManagerType(),
+            gseV1Properties.getSsl().getTrustStore().getStoreType());
+        params.setKeyStore(gseV1Properties.getSsl().getKeyStore().getPath(),
+            gseV1Properties.getSsl().getKeyStore().getPassword());
+        StopWatch watch = new StopWatch("getAgent");
+
+        watch.start("BKTSSLTransportFactory.getClientSocket");
+        TSocket tSocket = BKTSSLTransportFactory.getClientSocket(ip, port, 15000, params);
+        watch.stop();
+
+        watch.start("new TFramedTransport");
+        tTransport = new TFramedTransport(tSocket);
+        watch.stop();
+
+        watch.start("new TBinaryProtocol");
         TProtocol tProtocol = new TBinaryProtocol(tTransport);
+        watch.stop();
+
+        watch.start("new CacheAPI.Client");
         CacheAPI.Client gseAgentClient = new CacheAPI.Client(tProtocol);
-        return new GseCacheClient(gseAgentClient, tTransport);
+        watch.stop();
+
+        watch.start("new GseCacheClient");
+        GseCacheClient gseCacheClient = new GseCacheClient(gseAgentClient, tTransport);
+        watch.stop();
+
+        if (watch.getTotalTimeMillis() > 1000) {
+            log.warn("getAgent slow, statistics: " + watch.prettyPrint());
+        }
+        return gseCacheClient;
     }
 
 }

@@ -26,6 +26,7 @@ package com.tencent.bk.job.crontab.dao;
 
 import com.tencent.bk.job.common.model.BaseSearchCondition;
 import com.tencent.bk.job.common.model.PageData;
+import com.tencent.bk.job.crontab.model.dto.CronJobBasicInfoDTO;
 import com.tencent.bk.job.crontab.model.dto.CronJobInfoDTO;
 import com.tencent.bk.job.crontab.model.dto.CronJobWithVarsDTO;
 
@@ -137,6 +138,7 @@ public interface CronJobDAO {
 
     Integer countCronJob(Long appId, Boolean active, Boolean cron);
 
+    List<CronJobBasicInfoDTO> listEnabledCronBasicInfoForUpdate(int start, int limit);
 
     // 新增
 
@@ -178,11 +180,11 @@ public interface CronJobDAO {
     /**
      * 根据ID更新定时任务的变量值
      *
-     * @param id               定时任务ID
-     * @param variableValueStr 变量值字符串
+     * @param id                 定时任务ID
+     * @param cronJobWithVarsDTO 含变量的定时任务数据
      * @return 受影响行数
      */
-    int updateVariableById(Long id, String variableValueStr);
+    int updateVariableById(Long id, CronJobWithVarsDTO cronJobWithVarsDTO);
 
     // 删除
 

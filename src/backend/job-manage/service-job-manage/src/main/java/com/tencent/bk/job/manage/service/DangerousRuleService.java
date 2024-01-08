@@ -24,6 +24,8 @@
 
 package com.tencent.bk.job.manage.service;
 
+import com.tencent.bk.job.manage.common.consts.EnableStatusEnum;
+import com.tencent.bk.job.manage.model.dto.globalsetting.DangerousRuleDTO;
 import com.tencent.bk.job.manage.model.query.DangerousRuleQuery;
 import com.tencent.bk.job.manage.model.web.request.globalsetting.AddOrUpdateDangerousRuleReq;
 import com.tencent.bk.job.manage.model.web.request.globalsetting.MoveDangerousRuleReq;
@@ -35,11 +37,17 @@ public interface DangerousRuleService {
 
     List<DangerousRuleVO> listDangerousRules(String username);
 
-    Boolean addOrUpdateDangerousRule(String username, AddOrUpdateDangerousRuleReq req);
+    DangerousRuleDTO getDangerousRuleById(Long id);
+
+    DangerousRuleDTO createDangerousRule(String username, AddOrUpdateDangerousRuleReq req);
+
+    DangerousRuleDTO updateDangerousRule(String username, AddOrUpdateDangerousRuleReq req);
 
     Integer moveDangerousRule(String username, MoveDangerousRuleReq req);
 
     Integer deleteDangerousRuleById(String username, Long id);
 
     List<DangerousRuleVO> listDangerousRules(DangerousRuleQuery query);
+
+    DangerousRuleDTO updateDangerousRuleStatus(String userName, Long id, EnableStatusEnum status);
 }

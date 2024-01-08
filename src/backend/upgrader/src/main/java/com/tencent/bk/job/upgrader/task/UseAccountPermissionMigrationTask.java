@@ -35,16 +35,17 @@ import com.tencent.bk.job.common.iam.dto.EsbIamBatchPathResource;
 import com.tencent.bk.job.common.iam.dto.EsbIamPathItem;
 import com.tencent.bk.job.common.iam.dto.EsbIamSubject;
 import com.tencent.bk.job.common.iam.util.BusinessAuthHelper;
+import com.tencent.bk.job.common.jwt.BasicJwtManager;
+import com.tencent.bk.job.common.jwt.JwtManager;
 import com.tencent.bk.job.common.model.dto.AppResourceScope;
 import com.tencent.bk.job.common.util.json.JsonUtils;
-import com.tencent.bk.job.common.util.jwt.BasicJwtManager;
-import com.tencent.bk.job.common.util.jwt.JwtManager;
 import com.tencent.bk.job.upgrader.anotation.ExecuteTimeEnum;
 import com.tencent.bk.job.upgrader.anotation.RequireTaskParam;
 import com.tencent.bk.job.upgrader.anotation.UpgradeTask;
 import com.tencent.bk.job.upgrader.anotation.UpgradeTaskInputParam;
 import com.tencent.bk.job.upgrader.client.IamClient;
 import com.tencent.bk.job.upgrader.client.JobClient;
+import com.tencent.bk.job.upgrader.iam.ApiClientUtils;
 import com.tencent.bk.job.upgrader.iam.JobIamHelper;
 import com.tencent.bk.job.upgrader.model.ActionPolicies;
 import com.tencent.bk.job.upgrader.model.BasicAppInfo;
@@ -55,8 +56,6 @@ import com.tencent.bk.sdk.iam.constants.SystemId;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.helpers.MessageFormatter;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -108,10 +107,10 @@ public class UseAccountPermissionMigrationTask extends BaseUpgradeTask {
             (String) getProperties().get(ParamNameConsts.CONFIG_PROPERTY_JOB_SECURITY_PUBLIC_KEY_BASE64);
         String securityPrivateKeyBase64 =
             (String) getProperties().get(ParamNameConsts.CONFIG_PROPERTY_JOB_SECURITY_PRIVATE_KEY_BASE64);
-        JwtManager jwtManager = null;
+        JwtManager jwtManager;
         try {
             jwtManager = new BasicJwtManager(securityPrivateKeyBase64, securityPublicKeyBase64);
-        } catch (IOException | GeneralSecurityException e) {
+        } catch (Exception e) {
             String msg = "Fail to generate jwt auth token";
             log.error(msg, e);
             throw new InternalException(msg, e, ErrorCode.INTERNAL_ERROR);
@@ -123,9 +122,7 @@ public class UseAccountPermissionMigrationTask extends BaseUpgradeTask {
         );
         this.basicAppInfoList = getAllNormalAppInfoFromManage();
         appInfoMap = new HashMap<>();
-        basicAppInfoList.forEach(basicAppInfo -> {
-            appInfoMap.put(basicAppInfo.getAppId(), basicAppInfo.getName());
-        });
+        basicAppInfoList.forEach(basicAppInfo -> appInfoMap.put(basicAppInfo.getAppId(), basicAppInfo.getName()));
     }
 
     private IamClient getIamClient() {
@@ -141,16 +138,10 @@ public class UseAccountPermissionMigrationTask extends BaseUpgradeTask {
     }
 
     private EsbIamClient getEsbIamClient() {
-        Properties properties = getProperties();
-        if (esbIamClient == null) {
-            esbIamClient = new EsbIamClient(
-                (String) properties.get(ParamNameConsts.CONFIG_PROPERTY_ESB_SERVICE_URL),
-                (String) properties.get(ParamNameConsts.CONFIG_PROPERTY_APP_CODE),
-                (String) properties.get(ParamNameConsts.CONFIG_PROPERTY_APP_SECRET),
-                false
-            );
+        if (this.esbIamClient == null) {
+            this.esbIamClient = ApiClientUtils.buildEsbIamClient(getProperties());
         }
-        return esbIamClient;
+        return this.esbIamClient;
     }
 
     private List<Policy> queryAuthorizedPolicies(String actionId) {
@@ -170,8 +161,8 @@ public class UseAccountPermissionMigrationTask extends BaseUpgradeTask {
     /**
      * 根据策略计算出有权限的业务Id列表
      *
-     * @param policy
-     * @return
+     * @param policy 策略
+     * @return 有权限的业务ID列表
      */
     private List<Long> getAuthorizedAppIdList(Policy policy) {
         BusinessAuthHelper businessAuthHelper = jobIamHelper.businessAuthHelper();
@@ -186,8 +177,8 @@ public class UseAccountPermissionMigrationTask extends BaseUpgradeTask {
     /**
      * 根据业务ID获取业务名称
      *
-     * @param appId
-     * @return
+     * @param appId 业务ID
+     * @return 业务名称
      */
     private String getAppNameById(Long appId) {
         if (appInfoMap.containsKey(appId)) return appInfoMap.get(appId);
@@ -300,11 +291,10 @@ public class UseAccountPermissionMigrationTask extends BaseUpgradeTask {
     }
 
     public void showPolicies(List<Policy> policies) {
-        policies.forEach(policy -> {
+        policies.forEach(policy ->
             log.info("{}: {} expiredAt {}, expression:{}", policy.getId(),
                 policy.getSubject().getType() + ":" + policy.getSubject().getName(),
-                policy.getExpiredAt(), JsonUtils.toJson(policy.getExpression()));
-        });
+                policy.getExpiredAt(), JsonUtils.toJson(policy.getExpression())));
     }
 
     @Override
@@ -319,14 +309,15 @@ public class UseAccountPermissionMigrationTask extends BaseUpgradeTask {
         printSeparateLine();
         log.info("Begin to auth according to oldPolicies:");
         // 2.新权限数据授权
-        oldAuthorizedPolicies.forEach(policy -> {
+        oldAuthorizedPolicies.forEach(policy ->
             log.info(
                 "auth {}:{}:{}:{}",
                 policy.getSubject().getType(),
                 policy.getSubject().getName(),
                 policy.getExpiredAt(),
-                authByPolicy(policy));
-        });
+                authByPolicy(policy)
+            )
+        );
         // 3.新权限策略查询
         String newActionId = ActionId.USE_ACCOUNT;
         List<Policy> newAuthorizedPolicies = queryAuthorizedPolicies(newActionId);

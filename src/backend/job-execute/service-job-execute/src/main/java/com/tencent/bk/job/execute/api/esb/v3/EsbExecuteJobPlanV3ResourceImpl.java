@@ -24,15 +24,17 @@
 
 package com.tencent.bk.job.execute.api.esb.v3;
 
+import com.tencent.bk.audit.annotations.AuditEntry;
+import com.tencent.bk.audit.annotations.AuditRequestBody;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.esb.metrics.EsbApiTimed;
 import com.tencent.bk.job.common.esb.model.EsbResp;
 import com.tencent.bk.job.common.esb.model.job.v3.EsbGlobalVarV3DTO;
 import com.tencent.bk.job.common.esb.model.job.v3.EsbServerV3DTO;
 import com.tencent.bk.job.common.exception.InvalidParamException;
+import com.tencent.bk.job.common.iam.constant.ActionId;
 import com.tencent.bk.job.common.metrics.CommonMetricNames;
 import com.tencent.bk.job.common.model.ValidateResult;
-import com.tencent.bk.job.common.service.AppScopeMappingService;
 import com.tencent.bk.job.common.util.json.JsonUtils;
 import com.tencent.bk.job.common.web.metrics.CustomTimed;
 import com.tencent.bk.job.execute.common.constants.TaskStartupModeEnum;
@@ -59,13 +61,10 @@ public class EsbExecuteJobPlanV3ResourceImpl
     implements EsbExecuteJobPlanV3Resource {
 
     private final TaskExecuteService taskExecuteService;
-    private final AppScopeMappingService appScopeMappingService;
 
     @Autowired
-    public EsbExecuteJobPlanV3ResourceImpl(TaskExecuteService taskExecuteService,
-                                           AppScopeMappingService appScopeMappingService) {
+    public EsbExecuteJobPlanV3ResourceImpl(TaskExecuteService taskExecuteService) {
         this.taskExecuteService = taskExecuteService;
-        this.appScopeMappingService = appScopeMappingService;
     }
 
     @Override
@@ -75,8 +74,10 @@ public class EsbExecuteJobPlanV3ResourceImpl
             ExecuteMetricsConstants.TAG_KEY_START_MODE, ExecuteMetricsConstants.TAG_VALUE_START_MODE_API,
             ExecuteMetricsConstants.TAG_KEY_TASK_TYPE, ExecuteMetricsConstants.TAG_VALUE_TASK_TYPE_EXECUTE_PLAN
         })
-    public EsbResp<EsbJobExecuteV3DTO> executeJobPlan(EsbExecuteJobV3Request request) {
-        request.fillAppResourceScope(appScopeMappingService);
+    @AuditEntry(actionId = ActionId.LAUNCH_JOB_PLAN)
+    public EsbResp<EsbJobExecuteV3DTO> executeJobPlan(String username,
+                                                      String appCode,
+                                                      @AuditRequestBody EsbExecuteJobV3Request request) {
         ValidateResult checkResult = checkExecuteTaskRequest(request);
         log.info("Execute task, request={}", JsonUtils.toJson(request));
         if (!checkResult.isPass()) {
@@ -93,7 +94,7 @@ public class EsbExecuteJobPlanV3ResourceImpl
                 taskVariableDTO.setId(globalVar.getId());
                 taskVariableDTO.setName(globalVar.getName());
                 EsbServerV3DTO server = globalVar.getServer();
-                if (StringUtils.isEmpty(globalVar.getValue()) && server != null && !server.isHostParamsEmpty()) {
+                if (StringUtils.isEmpty(globalVar.getValue()) && server != null && server.checkHostParamsNonEmpty()) {
                     ServersDTO serversDTO = convertToServersDTO(globalVar.getServer());
                     taskVariableDTO.setTargetServers(serversDTO);
                 } else {
@@ -107,11 +108,11 @@ public class EsbExecuteJobPlanV3ResourceImpl
                 .builder()
                 .appId(request.getAppId())
                 .planId(request.getTaskId())
-                .operator(request.getUserName())
+                .operator(username)
                 .executeVariableValues(executeVariableValues)
                 .startupMode(TaskStartupModeEnum.API)
                 .callbackUrl(request.getCallbackUrl())
-                .appCode(request.getAppCode())
+                .appCode(appCode)
                 .build());
 
         EsbJobExecuteV3DTO result = new EsbJobExecuteV3DTO();

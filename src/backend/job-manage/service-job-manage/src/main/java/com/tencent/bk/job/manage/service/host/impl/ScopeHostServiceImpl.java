@@ -24,7 +24,7 @@
 
 package com.tencent.bk.job.manage.service.host.impl;
 
-import com.tencent.bk.job.common.cc.service.CloudAreaService;
+import com.tencent.bk.job.common.cc.sdk.BkNetClient;
 import com.tencent.bk.job.common.model.PageData;
 import com.tencent.bk.job.common.model.dto.AppResourceScope;
 import com.tencent.bk.job.common.model.dto.ApplicationDTO;
@@ -46,6 +46,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -60,18 +61,36 @@ public class ScopeHostServiceImpl implements ScopeHostService {
 
     private final ApplicationService applicationService;
     private final BizHostService bizHostService;
-    private final CloudAreaService cloudAreaService;
+    private final BkNetClient bkNetClient;
     private final BizTopoService bizTopoService;
 
     @Autowired
     public ScopeHostServiceImpl(ApplicationService applicationService,
                                 BizHostService bizHostService,
-                                CloudAreaService cloudAreaService,
+                                BkNetClient bkNetClient,
                                 BizTopoService bizTopoService) {
         this.applicationService = applicationService;
         this.bizHostService = bizHostService;
-        this.cloudAreaService = cloudAreaService;
+        this.bkNetClient = bkNetClient;
         this.bizTopoService = bizTopoService;
+    }
+
+    @Override
+    public List<Long> filterScopeHostIds(AppResourceScope appResourceScope,
+                                         Collection<Long> hostIds) {
+        ApplicationDTO applicationDTO = applicationService.getAppByScope(appResourceScope);
+        if (applicationDTO.isAllBizSet()) {
+            // 全业务
+            return new ArrayList<>(hostIds);
+        } else if (applicationDTO.isBizSet()) {
+            // 业务集
+            List<Long> bizIds = applicationDTO.getSubBizIds();
+            return bizHostService.filterHostIdsByBiz(bizIds, hostIds);
+        } else {
+            // 普通业务
+            Long bizId = Long.parseLong(applicationDTO.getScope().getId());
+            return bizHostService.filterHostIdsByBiz(Collections.singletonList(bizId), hostIds);
+        }
     }
 
     @Override
@@ -270,7 +289,7 @@ public class ScopeHostServiceImpl implements ScopeHostService {
         }
 
         //获取所有云区域，找出名称符合条件的所有CloudAreaId
-        List<Long> cloudAreaIds = cloudAreaService.getAnyNameMatchedCloudAreaIds(searchContents);
+        List<Long> cloudAreaIds = bkNetClient.getAnyNameMatchedCloudAreaIds(searchContents);
         return new BasicParsedSearchConditions(bizIds, moduleIds, cloudAreaIds, searchContents);
     }
 

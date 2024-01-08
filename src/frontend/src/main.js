@@ -47,6 +47,7 @@ import '@/css/reset.css';
 import '@/css/app.css';
 import '@bk-icon/style.css';
 import '@bk-icon/iconcool.js';
+import  '@blueking/notice-component-vue2/dist/style.css';
 
 /**
  * @desc 启动打印当前系统信息
@@ -69,6 +70,7 @@ window.changeFlag = false;
  * - FILE_DISTRIBUTION 生效范围文件分发
  */
 window.IPInputScope = '';
+
 /**
  * @desc 开启路由回溯
  */

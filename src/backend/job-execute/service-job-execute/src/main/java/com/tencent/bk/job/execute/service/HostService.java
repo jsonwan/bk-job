@@ -68,8 +68,8 @@ public interface HostService {
     /**
      * 获取业务下的主机列表
      *
-     * @param appId Job业务ID
-     * @param hosts 主机列表
+     * @param appId          Job业务ID
+     * @param hosts          主机列表
      * @param refreshAgentId 是否重新刷新主机agentId
      * @return 主机信息
      */
@@ -116,13 +116,4 @@ public interface HostService {
         long appId,
         Collection<DynamicServerTopoNodeDTO> topoNodes
     );
-
-
-    /**
-     * 获取主机云区域名称
-     *
-     * @param cloudAreaId 云区域ID
-     * @return 云区域名称
-     */
-    String getCloudAreaName(long cloudAreaId);
 }

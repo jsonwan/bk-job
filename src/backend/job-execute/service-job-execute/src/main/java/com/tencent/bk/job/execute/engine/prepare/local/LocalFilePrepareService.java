@@ -24,11 +24,11 @@
 
 package com.tencent.bk.job.execute.engine.prepare.local;
 
+import com.tencent.bk.job.common.artifactory.config.ArtifactoryConfig;
 import com.tencent.bk.job.common.artifactory.sdk.ArtifactoryClient;
 import com.tencent.bk.job.common.constant.JobConstants;
-import com.tencent.bk.job.execute.config.ArtifactoryConfig;
+import com.tencent.bk.job.execute.config.FileDistributeConfig;
 import com.tencent.bk.job.execute.config.LocalFileConfigForExecute;
-import com.tencent.bk.job.execute.config.StorageSystemConfig;
 import com.tencent.bk.job.execute.engine.prepare.JobTaskContext;
 import com.tencent.bk.job.execute.model.FileSourceDTO;
 import com.tencent.bk.job.execute.model.ServersDTO;
@@ -51,30 +51,33 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Service
 public class LocalFilePrepareService {
 
-    private final StorageSystemConfig storageSystemConfig;
+    private final FileDistributeConfig fileDistributeConfig;
     private final ArtifactoryConfig artifactoryConfig;
     private final LocalFileConfigForExecute localFileConfigForExecute;
     private final AgentService agentService;
     private final TaskInstanceService taskInstanceService;
     private final ArtifactoryClient artifactoryClient;
     private final Map<String, ArtifactoryLocalFilePrepareTask> taskMap = new ConcurrentHashMap<>();
-    private final ThreadPoolExecutor localFilePrepareExecutor;
+    private final ThreadPoolExecutor localFileDownloadExecutor;
+    private final ThreadPoolExecutor localFileWatchExecutor;
 
     @Autowired
-    public LocalFilePrepareService(StorageSystemConfig storageSystemConfig,
+    public LocalFilePrepareService(FileDistributeConfig fileDistributeConfig,
                                    ArtifactoryConfig artifactoryConfig,
                                    LocalFileConfigForExecute localFileConfigForExecute,
                                    AgentService agentService,
                                    TaskInstanceService taskInstanceService,
-                                   ArtifactoryClient artifactoryClient,
-                                   @Qualifier("localFilePrepareExecutor") ThreadPoolExecutor localFilePrepareExecutor) {
-        this.storageSystemConfig = storageSystemConfig;
+                                   @Qualifier("jobArtifactoryClient") ArtifactoryClient artifactoryClient,
+                                   @Qualifier("localFileDownloadExecutor") ThreadPoolExecutor localFileDownloadExecutor,
+                                   @Qualifier("localFileWatchExecutor") ThreadPoolExecutor localFileWatchExecutor) {
+        this.fileDistributeConfig = fileDistributeConfig;
         this.artifactoryConfig = artifactoryConfig;
         this.localFileConfigForExecute = localFileConfigForExecute;
         this.agentService = agentService;
         this.taskInstanceService = taskInstanceService;
         this.artifactoryClient = artifactoryClient;
-        this.localFilePrepareExecutor = localFilePrepareExecutor;
+        this.localFileDownloadExecutor = localFileDownloadExecutor;
+        this.localFileWatchExecutor = localFileWatchExecutor;
     }
 
     public void stopPrepareLocalFilesAsync(
@@ -108,8 +111,9 @@ public class LocalFilePrepareService {
             artifactoryClient,
             artifactoryConfig.getArtifactoryJobProject(),
             localFileConfigForExecute.getLocalUploadRepo(),
-            storageSystemConfig.getJobStorageRootPath(),
-            localFilePrepareExecutor
+            fileDistributeConfig.getJobDistributeRootPath(),
+            localFileDownloadExecutor,
+            localFileWatchExecutor
         );
         taskMap.put(stepInstance.getUniqueKey(), task);
         task.execute();

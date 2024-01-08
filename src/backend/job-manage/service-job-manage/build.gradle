@@ -29,14 +29,16 @@ dependencies {
     api project(":job-manage:model-job-manage")
     api project(":job-crontab:api-job-crontab")
     api project(":job-analysis:api-job-analysis")
+    api project(":job-file-gateway:api-job-file-gateway")
     api project(":commons:common")
+    api project(":commons:common-crypto")
     api project(":commons:common-security")
     api project(":commons:common-redis")
-    api project(":commons:cmdb-sdk-ext")
     api project(":commons:artifactory-sdk")
     api project(":commons:paas-sdk")
     api project(":commons:esb-sdk")
     api project(":commons:gse-sdk")
+    api project(":commons:cmdb-sdk")
     implementation "org.springframework.boot:spring-boot-starter-web"
     implementation "org.springframework.boot:spring-boot-starter-jdbc"
     implementation "org.springframework.boot:spring-boot-starter-jooq"
@@ -54,4 +56,5 @@ dependencies {
     implementation 'joda-time:joda-time'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.apache.commons:commons-lang3'
+    testImplementation("com.h2database:h2")
 }

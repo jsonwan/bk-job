@@ -33,7 +33,6 @@ import com.tencent.bk.job.file_gateway.service.context.TaskContext;
 import com.tencent.bk.job.file_gateway.service.listener.FileSourceTaskStatusChangeListener;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -41,14 +40,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class BatchTaskStatusUpdater implements FileSourceTaskStatusChangeListener {
 
-    private final DSLContext dslContext;
     private final FileSourceTaskDAO fileSourceTaskDAO;
     private final FileSourceBatchTaskDAO fileSourceBatchTaskDAO;
 
     @Autowired
-    public BatchTaskStatusUpdater(DSLContext dslContext, FileSourceTaskDAO fileSourceTaskDAO,
+    public BatchTaskStatusUpdater(FileSourceTaskDAO fileSourceTaskDAO,
                                   FileSourceBatchTaskDAO fileSourceBatchTaskDAO) {
-        this.dslContext = dslContext;
         this.fileSourceTaskDAO = fileSourceTaskDAO;
         this.fileSourceBatchTaskDAO = fileSourceBatchTaskDAO;
     }
@@ -57,8 +54,7 @@ public class BatchTaskStatusUpdater implements FileSourceTaskStatusChangeListene
     public boolean onStatusChange(TaskContext context, TaskStatusEnum previousStatus, TaskStatusEnum currentStatus) {
         FileSourceTaskDTO fileSourceTaskDTO = context.getFileSourceTaskDTO();
         String batchTaskId = fileSourceTaskDTO.getBatchTaskId();
-        FileSourceBatchTaskDTO fileSourceBatchTaskDTO = fileSourceBatchTaskDAO.getFileSourceBatchTaskById(dslContext,
-            batchTaskId);
+        FileSourceBatchTaskDTO fileSourceBatchTaskDTO = fileSourceBatchTaskDAO.getBatchTaskById(batchTaskId);
         if (StringUtils.isBlank(batchTaskId)) {
             return false;
         }
@@ -69,14 +65,13 @@ public class BatchTaskStatusUpdater implements FileSourceTaskStatusChangeListene
         }
         if (TaskStatusEnum.SUCCESS.equals(currentStatus)) {
             //检查批量任务是否成功
-            if (fileSourceTaskDAO.countFileSourceTasksByBatchTaskId(
-                dslContext, batchTaskId, null)
+            if (fileSourceTaskDAO.countFileSourceTasksByBatchTaskId(batchTaskId, null)
                 .equals(fileSourceTaskDAO.countFileSourceTasksByBatchTaskId(
-                    dslContext, batchTaskId, TaskStatusEnum.SUCCESS.getStatus()))) {
+                    batchTaskId, TaskStatusEnum.SUCCESS.getStatus()))) {
                 // 批量任务成功
                 fileSourceBatchTaskDTO.setStatus(TaskStatusEnum.SUCCESS.getStatus());
-                fileSourceBatchTaskDAO.updateFileSourceBatchTask(dslContext, fileSourceBatchTaskDTO);
-                logUpdatedBatchTaskStatus(batchTaskId, TaskStatusEnum.SUCCESS);
+                int affectedNum = fileSourceBatchTaskDAO.updateFileSourceBatchTask(fileSourceBatchTaskDTO);
+                logUpdatedBatchTaskStatus(batchTaskId, TaskStatusEnum.SUCCESS, affectedNum);
             } else {
                 // 主任务尚未成功
                 log.info("task {} done, batchTask not finished yet", fileSourceTaskDTO.getId());
@@ -84,18 +79,18 @@ public class BatchTaskStatusUpdater implements FileSourceTaskStatusChangeListene
         } else if (TaskStatusEnum.FAILED.equals(currentStatus)) {
             // 批量任务失败
             fileSourceBatchTaskDTO.setStatus(TaskStatusEnum.FAILED.getStatus());
-            fileSourceBatchTaskDAO.updateFileSourceBatchTask(dslContext, fileSourceBatchTaskDTO);
-            logUpdatedBatchTaskStatus(batchTaskId, TaskStatusEnum.FAILED);
+            int affectedNum = fileSourceBatchTaskDAO.updateFileSourceBatchTask(fileSourceBatchTaskDTO);
+            logUpdatedBatchTaskStatus(batchTaskId, TaskStatusEnum.FAILED, affectedNum);
         } else if (TaskStatusEnum.STOPPED.equals(currentStatus)) {
             // 批量任务停止
             fileSourceBatchTaskDTO.setStatus(TaskStatusEnum.STOPPED.getStatus());
-            fileSourceBatchTaskDAO.updateFileSourceBatchTask(dslContext, fileSourceBatchTaskDTO);
-            logUpdatedBatchTaskStatus(batchTaskId, TaskStatusEnum.STOPPED);
+            int affectedNum = fileSourceBatchTaskDAO.updateFileSourceBatchTask(fileSourceBatchTaskDTO);
+            logUpdatedBatchTaskStatus(batchTaskId, TaskStatusEnum.STOPPED, affectedNum);
         }
         return false;
     }
 
-    private void logUpdatedBatchTaskStatus(String batchTaskId, TaskStatusEnum status) {
-        log.info("updated batchTask:{},{}", batchTaskId, status.name());
+    private void logUpdatedBatchTaskStatus(String batchTaskId, TaskStatusEnum status, int affectedNum) {
+        log.info("updated batchTask:{},{}, affectedNum={}", batchTaskId, status.name(), affectedNum);
     }
 }

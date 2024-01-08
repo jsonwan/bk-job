@@ -28,12 +28,14 @@
 <template>
   <div
     id="templateOperation"
+    ref="root"
     class="template-operation-page">
     <resize-layout
       ref="resizeLayout"
       class="push-file-content"
       right-fixed
-      :right-width="366">
+      :right-width="366"
+      :style="layoutStyle">
       <smart-action offset-target="bk-form-content">
         <jb-form
           ref="templateOperateRef"
@@ -124,6 +126,7 @@
 
   import {
     checkIllegalHostFromVariableStep,
+    getOffset,
     removeIllegalHostFromStep,
     removeIllegalHostFromVariable,
   } from '@utils/assist';
@@ -166,6 +169,7 @@
         planList: [],
         isSubmiting: false,
         execLoading: false,
+        layoutStyle: {},
       };
     },
     computed: {
@@ -183,6 +187,11 @@
         },
         deep: true,
       },
+    },
+    mounted() {
+      this.layoutStyle = {
+        height: `calc(100vh - ${getOffset(this.$refs.root).top}px)`,
+      };
     },
     created() {
       this.taskId = this.$route.params.id || 0;
@@ -513,14 +522,17 @@
         // 提交作业模板
         // 再主动拉取作业模板对应的执行方案列表，判断执行方案是否为空和是否需要同步
         this.isSubmiting = true;
+
+        const requestHandler = this.isEdit ? TaskManageService.taskUpdate : TaskManageService.create;
+
         this.$refs.templateOperateRef.validate()
-          .then(() => TaskManageService.taskUpdate({
+          .then(() => requestHandler({
             ...this.formData,
             id: this.isEdit ? this.taskId : 0,
-          }).then((taskId) => {
+          }).then((data) => {
             window.changeFlag = false;
             return TaskPlanService.fetchTaskPlan({
-              id: taskId,
+              id: data.id,
             }).then((planList) => {
               let planSync = false;
               // eslint-disable-next-line no-plusplus
@@ -532,9 +544,9 @@
               }
               this.planList = Object.freeze(planList);
               if (this.isEdit) {
-                this.editSuccessCallback(taskId, planSync);
+                this.editSuccessCallback(data.id, planSync);
               } else {
-                this.createSuccessCallback(taskId);
+                this.createSuccessCallback(data.id);
               }
             });
           }))
@@ -743,13 +755,10 @@
 
   .template-operation-page {
     .push-file-content {
-      height: calc(100vh - 104px);
-
       .jb-resize-layout-right {
         background: #fff;
 
         .variable-use-guide {
-          height: calc(100vh - 104px);
           padding-bottom: 52px;
         }
       }

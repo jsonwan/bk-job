@@ -24,6 +24,8 @@
 
 package com.tencent.bk.job.execute.api.esb.v2.impl;
 
+import com.tencent.bk.audit.annotations.AuditEntry;
+import com.tencent.bk.audit.annotations.AuditRequestBody;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.esb.metrics.EsbApiTimed;
 import com.tencent.bk.job.common.esb.model.EsbResp;
@@ -32,10 +34,10 @@ import com.tencent.bk.job.common.esb.util.EsbDTOAppScopeMappingHelper;
 import com.tencent.bk.job.common.exception.InvalidParamException;
 import com.tencent.bk.job.common.exception.NotFoundException;
 import com.tencent.bk.job.common.i18n.service.MessageI18nService;
+import com.tencent.bk.job.common.iam.constant.ActionId;
 import com.tencent.bk.job.common.metrics.CommonMetricNames;
 import com.tencent.bk.job.common.model.ValidateResult;
 import com.tencent.bk.job.common.model.dto.HostDTO;
-import com.tencent.bk.job.common.service.AppScopeMappingService;
 import com.tencent.bk.job.execute.api.esb.v2.EsbGetStepInstanceStatusResource;
 import com.tencent.bk.job.execute.engine.consts.AgentTaskStatusEnum;
 import com.tencent.bk.job.execute.model.AgentTaskDetailDTO;
@@ -43,7 +45,6 @@ import com.tencent.bk.job.execute.model.AgentTaskResultGroupDTO;
 import com.tencent.bk.job.execute.model.StepExecutionDetailDTO;
 import com.tencent.bk.job.execute.model.StepExecutionResultQuery;
 import com.tencent.bk.job.execute.model.StepInstanceBaseDTO;
-import com.tencent.bk.job.execute.model.TaskInstanceDTO;
 import com.tencent.bk.job.execute.model.esb.v2.EsbStepInstanceStatusDTO;
 import com.tencent.bk.job.execute.model.esb.v2.request.EsbGetStepInstanceStatusRequest;
 import com.tencent.bk.job.execute.service.TaskInstanceService;
@@ -62,29 +63,26 @@ import java.util.stream.Collectors;
 
 @RestController
 @Slf4j
-public class EsbGetStepInstanceStatusResourceImpl
-    extends JobQueryCommonProcessor
-    implements EsbGetStepInstanceStatusResource {
+public class EsbGetStepInstanceStatusResourceImpl implements EsbGetStepInstanceStatusResource {
     private final TaskInstanceService taskInstanceService;
     private final TaskResultService taskResultService;
     private final MessageI18nService i18nService;
-    private final AppScopeMappingService appScopeMappingService;
 
     public EsbGetStepInstanceStatusResourceImpl(MessageI18nService i18nService,
                                                 TaskInstanceService taskInstanceService,
-                                                AppScopeMappingService appScopeMappingService,
                                                 TaskResultService taskResultService) {
         this.i18nService = i18nService;
         this.taskInstanceService = taskInstanceService;
-        this.appScopeMappingService = appScopeMappingService;
         this.taskResultService = taskResultService;
     }
 
     @Override
     @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v2_get_step_instance_status"})
-    public EsbResp<EsbStepInstanceStatusDTO> getJobStepInstanceStatus(EsbGetStepInstanceStatusRequest request) {
-        request.fillAppResourceScope(appScopeMappingService);
-
+    @AuditEntry(actionId = ActionId.VIEW_HISTORY)
+    public EsbResp<EsbStepInstanceStatusDTO> getJobStepInstanceStatus(
+        String username,
+        String appCode,
+        @AuditRequestBody EsbGetStepInstanceStatusRequest request) {
         ValidateResult checkResult = checkRequest(request);
         if (!checkResult.isPass()) {
             log.warn("Get step instance status request is illegal!");
@@ -95,11 +93,9 @@ public class EsbGetStepInstanceStatusResourceImpl
 
         StepExecutionResultQuery query = StepExecutionResultQuery.builder()
             .stepInstanceId(request.getStepInstanceId()).build();
-        StepExecutionDetailDTO stepExecutionDetail = taskResultService.getStepExecutionResult(request.getUserName(),
+        StepExecutionDetailDTO stepExecutionDetail = taskResultService.getStepExecutionResult(username,
             request.getAppId(), query);
 
-        TaskInstanceDTO taskInstance = taskInstanceService.getTaskInstance(request.getTaskInstanceId());
-        authViewTaskInstance(request.getUserName(), request.getAppResourceScope(), taskInstance);
         resultData.setIsFinished(stepExecutionDetail.isFinished());
         resultData.setAyalyseResult(convertToStandardAnalyseResult(stepExecutionDetail));
 

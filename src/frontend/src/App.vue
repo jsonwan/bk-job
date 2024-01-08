@@ -175,7 +175,7 @@
      */
     created() {
       this.fetchUserInfo();
-      this.fetchTitleConfig();
+      this.fetchPlatformInfo();
       this.fetchRelatedSystemUrls();
       this.fetchEnv();
     },
@@ -202,10 +202,11 @@
       /**
        * @desc 获取系统title自定义配置
        */
-      fetchTitleConfig() {
-        QueryGlobalSettingService.fetchTitleConfig()
+      fetchPlatformInfo() {
+        QueryGlobalSettingService.fetchPlatformInfo()
           .then((data) => {
             this.titleConfig = data;
+            window.PROJECT_CONFIG.HELPER_CONTACT_LINK = data.helperContactLink;
           })
           .catch(() => {
             this.titleConfig = {
@@ -252,12 +253,12 @@
        */
       handleToggleLang(lang) {
         Cookie.remove('blueking_language', { path: '' });
-        Cookie.set('blueking_language', lang, {
+        Cookie.set('blueking_language', lang.toLocaleLowerCase(), {
           expires: 3600,
           domain: this.envConfig.bkDomain,
         });
         setLocale(lang);
-        jsonp(`${this.envConfig['esb.url']}/api/c/compapi/v2/usermanage/fe_update_user_language/?language=${lang}`);
+        jsonp(`${this.envConfig['esb.url']}/api/c/compapi/v2/usermanage/fe_update_user_language/?language=${lang.toLocaleLowerCase()}`);
       },
       /**
        * @desc 显示版本更新日志
@@ -273,7 +274,7 @@
           this.messageError(I18n.t('网络错误，请刷新页面重试'));
           return;
         }
-        window.open(`${this.relatedSystemUrls.BK_DOC_CENTER_ROOT_URL}/markdown/作业平台/产品白皮书/Introduction/What-is-Job.md`);
+        window.open(`${this.relatedSystemUrls.BK_DOC_CENTER_ROOT_URL}/markdown/JOB/UserGuide/Introduction/What-is-Job.md`);
       },
       /**
        * @desc 打开问题反馈

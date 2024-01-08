@@ -39,6 +39,8 @@ data:
     bkApiGateway:
       gse:
         url: {{ .Values.bkGseApiGatewayUrl }}
+      bkNotice:
+        url: {{ .Values.bkNoticeApiGatewayUrl }}
     gse:
       enabled: {{ .Values.gse.enabled }}
       cache:
@@ -65,14 +67,16 @@ data:
           connect:
             string: {{ .Values.gse.server.zookeeper.connect.string }}
       query:
-        threads:
-          num: {{ .Values.gse.query.threads.num }}
-        batchSize: {{ .Values.gse.query.batchSize }}
+        {{- toYaml .Values.gse.query | nindent 8 }}
       script:
         rootPath: {{ .Values.gse.script.rootPath }}
     iam:
+      web-url: {{ .Values.bkIamUrl }}
       base-url: {{ .Values.bkIamApiUrl }}
       system-id: {{ .Values.iam.systemId }}
+    audit:
+      enabled: {{ .Values.audit.enabled }}
+      system-id: {{ .Values.audit.systemId }}
     paas:
       server:
         url: {{ .Values.bkPaasUrl }}
@@ -86,6 +90,8 @@ data:
         {{- else }}
         url: {{ .Values.bkLoginUrl }}
         {{- end }}
+    bkNotice:
+      enabled: {{ .Values.bkNotice.enabled }}
     job:
       security:
         service:
@@ -93,6 +99,7 @@ data:
           public-key-base64: {{ .Values.job.security.publicKeyBase64 }}
       edition: {{ .Values.job.edition }}
       encrypt:
+        type: {{ .Values.job.encrypt.type }}
         password: {{ .Values.job.encrypt.password }}
       web:
         url: {{ include "job.web.url" . }}
@@ -146,3 +153,12 @@ data:
       metrics:
         tags:
           application: ${spring.application.name}
+    log:
+      # 服务后台日志保留的小时数，默认48小时（2天）
+      keep-hours: {{ .Values.log.keepHours }}
+      # 根据磁盘占用量自动清理后台日志相关配置
+      clear-by-volume-usage:
+        # 是否开启自动清理任务，默认开启
+        enabled: {{ .Values.log.clearByVolumeUsage.enabled }}
+        # 服务后台日志可使用的最大磁盘空间（超出后将清理最旧的日志文件），单位支持B、KB、MB、GB、TB、PB，默认40GB
+        max-volume: {{ .Values.log.clearByVolumeUsage.maxVolume }}

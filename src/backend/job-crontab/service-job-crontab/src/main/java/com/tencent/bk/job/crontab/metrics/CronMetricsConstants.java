@@ -26,19 +26,19 @@ package com.tencent.bk.job.crontab.metrics;
 
 public class CronMetricsConstants {
     /**
-     * Quartz工作线程池线程数
-     */
-    public static final String NAME_CRON_QUARTZ_TASK_EXECUTOR_POOL_SIZE = "cron.quartz.task.executor.pool.size";
-    /**
-     * Quartz工作线程池队列大小
-     */
-    public static final String NAME_CRON_QUARTZ_TASK_EXECUTOR_QUEUE_SIZE = "cron.quartz.task.executor.queue.size";
-    /**
      * 定时任务调度延迟指标
      */
     public static final String NAME_JOB_CRON_SCHEDULE_DELAY = "job.cron.schedule.delay";
-
-    public static final String TAG_KEY_MODULE = "module";
-
-    public static final String TAG_VALUE_MODULE_CRON = "cron";
+    /**
+     * 定时任务执行延迟指标
+     */
+    public static final String NAME_JOB_CRON_EXECUTE_DELAY = "job.cron.execute.delay";
+    /**
+     * 定时任务执行耗时指标
+     */
+    public static final String NAME_JOB_CRON_TIME_CONSUMING = "job.cron.time.consuming";
+    /**
+     * 标签：定时任务是否真正执行（抢到分布式锁）
+     */
+    public static final String TAG_KEY_JOB_CRON_EXECUTE_ACTUALLY = "execute_actually";
 }

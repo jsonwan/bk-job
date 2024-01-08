@@ -32,19 +32,16 @@ import com.tencent.bk.job.file_gateway.dao.filesource.FileSourceBatchTaskDAO;
 import com.tencent.bk.job.file_gateway.dao.filesource.FileSourceTaskDAO;
 import com.tencent.bk.job.file_gateway.model.dto.FileSourceBatchTaskDTO;
 import com.tencent.bk.job.file_gateway.model.dto.FileSourceTaskDTO;
+import com.tencent.bk.job.file_gateway.model.tables.FileSourceBatchTask;
+import com.tencent.bk.job.file_gateway.model.tables.records.FileSourceBatchTaskRecord;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.conf.ParamType;
-import org.jooq.generated.tables.FileSourceBatchTask;
-import org.jooq.generated.tables.records.FileSourceBatchTaskRecord;
-import org.jooq.impl.DSL;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 @Slf4j
@@ -52,10 +49,13 @@ import java.util.List;
 public class FileSourceBatchTaskDAOImpl extends BaseDAOImpl implements FileSourceBatchTaskDAO {
 
     private static final FileSourceBatchTask defaultTable = FileSourceBatchTask.FILE_SOURCE_BATCH_TASK;
+    private final DSLContext dslContext;
     private final FileSourceTaskDAO fileSourceTaskDAO;
 
     @Autowired
-    public FileSourceBatchTaskDAOImpl(FileSourceTaskDAO fileSourceTaskDAO) {
+    public FileSourceBatchTaskDAOImpl(@Qualifier("job-file-gateway-dsl-context") DSLContext dslContext,
+                                      FileSourceTaskDAO fileSourceTaskDAO) {
+        this.dslContext = dslContext;
         this.fileSourceTaskDAO = fileSourceTaskDAO;
     }
 
@@ -66,7 +66,7 @@ public class FileSourceBatchTaskDAOImpl extends BaseDAOImpl implements FileSourc
     }
 
     @Override
-    public String insertFileSourceBatchTask(DSLContext dslContext, FileSourceBatchTaskDTO fileSourceBatchTaskDTO) {
+    public String insertFileSourceBatchTask(FileSourceBatchTaskDTO fileSourceBatchTaskDTO) {
         setDefaultValue(fileSourceBatchTaskDTO);
         String id = JobUUID.getUUID();
         val query = dslContext.insertInto(defaultTable,
@@ -103,7 +103,7 @@ public class FileSourceBatchTaskDAOImpl extends BaseDAOImpl implements FileSourc
             for (FileSourceTaskDTO fileSourceTaskDTO : fileSourceTaskDTOList) {
                 fileSourceTaskDTO.setBatchTaskId(id);
                 // 插入FileSourceTask
-                fileSourceTaskDAO.insertFileSourceTask(dslContext, fileSourceTaskDTO);
+                fileSourceTaskDAO.insertFileSourceTask(fileSourceTaskDTO);
             }
             fileSourceBatchTaskDTO.setFileSourceTaskList(fileSourceTaskDTOList);
             return id;
@@ -114,7 +114,7 @@ public class FileSourceBatchTaskDAOImpl extends BaseDAOImpl implements FileSourc
     }
 
     @Override
-    public int updateFileSourceBatchTask(DSLContext dslContext, FileSourceBatchTaskDTO fileSourceBatchTaskDTO) {
+    public int updateFileSourceBatchTask(FileSourceBatchTaskDTO fileSourceBatchTaskDTO) {
         val query = dslContext.update(defaultTable)
             .set(defaultTable.APP_ID, fileSourceBatchTaskDTO.getAppId())
             .set(defaultTable.STATUS, fileSourceBatchTaskDTO.getStatus())
@@ -130,29 +130,7 @@ public class FileSourceBatchTaskDAOImpl extends BaseDAOImpl implements FileSourc
     }
 
     @Override
-    public int updateFileClearStatus(DSLContext dslContext, List<String> taskIdList, boolean fileCleared) {
-        val query = dslContext.update(defaultTable)
-            .set(defaultTable.FILE_CLEARED, fileCleared)
-            .set(defaultTable.LAST_MODIFY_TIME, System.currentTimeMillis())
-            .where(defaultTable.ID.in(taskIdList));
-        val sql = query.getSQL(ParamType.INLINED);
-        try {
-            return query.execute();
-        } catch (Exception e) {
-            log.error(sql);
-            throw e;
-        }
-    }
-
-    @Override
-    public int deleteFileSourceBatchTaskById(DSLContext dslContext, String id) {
-        return dslContext.deleteFrom(defaultTable).where(
-            defaultTable.ID.eq(id)
-        ).execute();
-    }
-
-    @Override
-    public FileSourceBatchTaskDTO getFileSourceBatchTaskById(DSLContext dslContext, String id) {
+    public FileSourceBatchTaskDTO getBatchTaskById(String id) {
         val record = dslContext.selectFrom(defaultTable).where(
             defaultTable.ID.eq(id)
         ).fetchOne();
@@ -164,33 +142,15 @@ public class FileSourceBatchTaskDAOImpl extends BaseDAOImpl implements FileSourc
     }
 
     @Override
-    public Long countFileSourceBatchTasks(DSLContext dslContext, Long appId) {
-        List<Condition> conditions = new ArrayList<>();
-        if (appId != null) {
-            conditions.add(defaultTable.APP_ID.eq(appId));
+    public FileSourceBatchTaskDTO getBatchTaskByIdForUpdate(String id) {
+        val record = dslContext.selectFrom(defaultTable).where(
+            defaultTable.ID.eq(id)
+        ).forUpdate().fetchOne();
+        if (record == null) {
+            return null;
+        } else {
+            return convertRecordToDto(record);
         }
-        return countFileSourceBatchTasksByConditions(dslContext, conditions);
-    }
-
-    public Long countFileSourceBatchTasksByConditions(DSLContext dslContext, Collection<Condition> conditions) {
-        val query = dslContext.select(
-            DSL.countDistinct(defaultTable.ID)
-        ).from(defaultTable)
-            .where(conditions);
-        return query.fetchOne(0, Long.class);
-    }
-
-    @Override
-    public List<FileSourceBatchTaskDTO> listFileSourceBatchTasks(DSLContext dslContext, Long appId, Integer start,
-                                                                 Integer pageSize) {
-        List<Condition> conditions = new ArrayList<>();
-        if (appId != null) {
-            conditions.add(defaultTable.APP_ID.eq(appId));
-        }
-        val query = dslContext.selectFrom(defaultTable)
-            .where(conditions)
-            .orderBy(defaultTable.LAST_MODIFY_TIME.desc());
-        return listPage(query, start, pageSize, this::convertRecordToDto);
     }
 
     private FileSourceBatchTaskDTO convertRecordToDto(FileSourceBatchTaskRecord record) {

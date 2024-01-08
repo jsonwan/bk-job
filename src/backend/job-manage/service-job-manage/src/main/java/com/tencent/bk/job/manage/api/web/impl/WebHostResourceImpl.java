@@ -25,17 +25,14 @@
 package com.tencent.bk.job.manage.api.web.impl;
 
 import com.tencent.bk.job.common.cc.model.InstanceTopologyDTO;
-import com.tencent.bk.job.common.cc.service.CloudAreaService;
+import com.tencent.bk.job.common.cc.sdk.BkNetClient;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.constant.ResourceScopeTypeEnum;
-import com.tencent.bk.job.common.exception.NotImplementedException;
-import com.tencent.bk.job.common.model.BaseSearchCondition;
 import com.tencent.bk.job.common.model.PageData;
 import com.tencent.bk.job.common.model.Response;
 import com.tencent.bk.job.common.model.dto.AppResourceScope;
 import com.tencent.bk.job.common.model.dto.ApplicationDTO;
 import com.tencent.bk.job.common.model.dto.ApplicationHostDTO;
-import com.tencent.bk.job.common.model.dto.DynamicGroupWithHost;
 import com.tencent.bk.job.common.model.vo.CloudAreaInfoVO;
 import com.tencent.bk.job.common.model.vo.DynamicGroupIdWithMeta;
 import com.tencent.bk.job.common.model.vo.HostInfoVO;
@@ -43,7 +40,7 @@ import com.tencent.bk.job.common.model.vo.TargetNodeVO;
 import com.tencent.bk.job.common.util.PageUtil;
 import com.tencent.bk.job.common.util.ip.IpUtils;
 import com.tencent.bk.job.manage.api.web.WebHostResource;
-import com.tencent.bk.job.manage.common.TopologyHelper;
+import com.tencent.bk.job.manage.common.consts.whiteip.ActionScopeEnum;
 import com.tencent.bk.job.manage.model.dto.DynamicGroupDTO;
 import com.tencent.bk.job.manage.model.web.request.AgentStatisticsReq;
 import com.tencent.bk.job.manage.model.web.request.HostCheckReq;
@@ -59,8 +56,6 @@ import com.tencent.bk.job.manage.model.web.request.ipchooser.PageListHostsByDyna
 import com.tencent.bk.job.manage.model.web.request.ipchooser.QueryNodesPathReq;
 import com.tencent.bk.job.manage.model.web.vo.CcTopologyNodeVO;
 import com.tencent.bk.job.manage.model.web.vo.DynamicGroupBasicVO;
-import com.tencent.bk.job.manage.model.web.vo.DynamicGroupInfoVO;
-import com.tencent.bk.job.manage.model.web.vo.NodeInfoVO;
 import com.tencent.bk.job.manage.model.web.vo.common.AgentStatistics;
 import com.tencent.bk.job.manage.model.web.vo.ipchooser.DynamicGroupHostStatisticsVO;
 import com.tencent.bk.job.manage.model.web.vo.ipchooser.NodeHostStatisticsVO;
@@ -69,6 +64,7 @@ import com.tencent.bk.job.manage.service.host.BizTopoHostService;
 import com.tencent.bk.job.manage.service.host.HostDetailService;
 import com.tencent.bk.job.manage.service.host.HostService;
 import com.tencent.bk.job.manage.service.host.ScopeHostService;
+import com.tencent.bk.job.manage.service.host.ScopeTopoHostService;
 import com.tencent.bk.job.manage.service.host.WhiteIpAwareScopeHostService;
 import com.tencent.bk.job.manage.service.host.impl.BizDynamicGroupHostService;
 import com.tencent.bk.job.manage.service.impl.BizDynamicGroupService;
@@ -84,10 +80,11 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -97,6 +94,7 @@ public class WebHostResourceImpl implements WebHostResource {
 
     private final ApplicationService applicationService;
     private final HostService hostService;
+    private final ScopeTopoHostService scopeTopoHostService;
     private final ScopeHostService scopeHostService;
     private final WhiteIpAwareScopeHostService whiteIpAwareScopeHostService;
     private final AgentStatusService agentStatusService;
@@ -109,6 +107,7 @@ public class WebHostResourceImpl implements WebHostResource {
     @Autowired
     public WebHostResourceImpl(ApplicationService applicationService,
                                HostService hostService,
+                               ScopeTopoHostService scopeTopoHostService,
                                ScopeHostService scopeHostService,
                                WhiteIpAwareScopeHostService whiteIpAwareScopeHostService,
                                AgentStatusService agentStatusService,
@@ -119,6 +118,7 @@ public class WebHostResourceImpl implements WebHostResource {
                                ScopeDynamicGroupService scopeDynamicGroupHostService) {
         this.applicationService = applicationService;
         this.hostService = hostService;
+        this.scopeTopoHostService = scopeTopoHostService;
         this.scopeHostService = scopeHostService;
         this.whiteIpAwareScopeHostService = whiteIpAwareScopeHostService;
         this.agentStatusService = agentStatusService;
@@ -127,72 +127,6 @@ public class WebHostResourceImpl implements WebHostResource {
         this.bizDynamicGroupService = bizDynamicGroupService;
         this.bizDynamicGroupHostService = bizDynamicGroupHostService;
         this.scopeDynamicGroupHostService = scopeDynamicGroupHostService;
-    }
-
-    @Override
-    public Response<PageData<HostInfoVO>> listAppHost(String username,
-                                                      AppResourceScope appResourceScope,
-                                                      String scopeType,
-                                                      String scopeId,
-                                                      Integer start,
-                                                      Integer pageSize,
-                                                      Long moduleType,
-                                                      String ipCondition) {
-        ApplicationHostDTO applicationHostInfoCondition = new ApplicationHostDTO();
-        applicationHostInfoCondition.setBizId(appResourceScope.getAppId());
-        applicationHostInfoCondition.setIp(ipCondition);
-        if (moduleType != null) {
-            applicationHostInfoCondition.getModuleType().add(moduleType);
-        }
-
-        BaseSearchCondition baseSearchCondition = new BaseSearchCondition();
-        if (start == null || start < 0) {
-            start = 0;
-        }
-        if (pageSize == null || pageSize <= 0) {
-            pageSize = 10;
-        }
-        baseSearchCondition.setStart(start);
-        baseSearchCondition.setLength(pageSize);
-
-        PageData<ApplicationHostDTO> appHostInfoPageData =
-            hostService.listAppHost(applicationHostInfoCondition, baseSearchCondition);
-        PageData<HostInfoVO> finalHostInfoPageData = new PageData<>();
-        finalHostInfoPageData.setTotal(appHostInfoPageData.getTotal());
-        finalHostInfoPageData.setStart(appHostInfoPageData.getStart());
-        finalHostInfoPageData.setPageSize(appHostInfoPageData.getPageSize());
-        finalHostInfoPageData
-            .setData(appHostInfoPageData.getData().stream()
-                .filter(Objects::nonNull)
-                .map(ApplicationHostDTO::toVO).collect(Collectors.toList()));
-        return Response.buildSuccessResp(finalHostInfoPageData);
-    }
-
-    @Override
-    public Response<CcTopologyNodeVO> listAppTopologyTree(String username,
-                                                          AppResourceScope appResourceScope,
-                                                          String scopeType,
-                                                          String scopeId) {
-        return Response.buildSuccessResp(
-            hostService.listAppTopologyTree(username, appResourceScope)
-        );
-    }
-
-    @Override
-    public Response<CcTopologyNodeVO> listAppTopologyHostTree(String username,
-                                                              AppResourceScope appResourceScope,
-                                                              String scopeType,
-                                                              String scopeId) {
-        return Response.buildSuccessResp(hostService.listAppTopologyHostTree(username, appResourceScope));
-    }
-
-    @Override
-    public Response<CcTopologyNodeVO> listAppTopologyHostCountTree(String username,
-                                                                   AppResourceScope appResourceScope,
-                                                                   String scopeType,
-                                                                   String scopeId) {
-        return Response.buildSuccessResp(hostService.listAppTopologyHostCountTree(username,
-            appResourceScope));
     }
 
     // 标准接口1
@@ -204,7 +138,7 @@ public class WebHostResourceImpl implements WebHostResource {
                                                                        ListTopologyHostCountTreesReq req) {
         return Response.buildSuccessResp(
             Collections.singletonList(
-                hostService.listAppTopologyHostCountTree(username, appResourceScope)
+                scopeTopoHostService.listAppTopologyHostCountTree(username, appResourceScope)
             )
         );
     }
@@ -229,24 +163,11 @@ public class WebHostResourceImpl implements WebHostResource {
             pagePair.getLeft(),
             pagePair.getRight()
         );
-        hostDetailService.fillDetailForHosts(pageHostList.getData());
+        hostDetailService.fillDetailForApplicationHosts(pageHostList.getData());
         return Response.buildSuccessResp(PageUtil.transferPageData(
             pageHostList,
             ApplicationHostDTO::toVO
         ));
-    }
-
-    @Override
-    public Response<PageData<String>> listIpByBizTopologyNodes(String username,
-                                                               AppResourceScope appResourceScope,
-                                                               String scopeType,
-                                                               String scopeId,
-                                                               ListHostByBizTopologyNodesReq req) {
-        return Response.buildSuccessResp(
-            hostService.listIPByBizTopologyNodes(
-                username, appResourceScope, req
-            )
-        );
     }
 
     // 标准接口4
@@ -275,33 +196,6 @@ public class WebHostResourceImpl implements WebHostResource {
             hostId -> new HostIdWithMeta(hostId, null)
         );
         return Response.buildSuccessResp(finalPageData);
-    }
-
-    @Override
-    public Response<List<BizTopoNode>> getNodeDetail(String username,
-                                                     AppResourceScope appResourceScope,
-                                                     String scopeType,
-                                                     String scopeId,
-                                                     List<TargetNodeVO> targetNodeVOList) {
-        List<BizTopoNode> treeNodeList = hostService.getAppTopologyTreeNodeDetail(username,
-            appResourceScope,
-            targetNodeVOList.stream().map(it -> new BizTopoNode(
-                it.getObjectId(),
-                "",
-                it.getInstanceId(),
-                "",
-                null
-            )).collect(Collectors.toList()));
-        return Response.buildSuccessResp(treeNodeList);
-    }
-
-    @Override
-    public Response<List<List<CcTopologyNodeVO>>> queryNodePath(String username,
-                                                                AppResourceScope appResourceScope,
-                                                                String scopeType,
-                                                                String scopeId,
-                                                                List<TargetNodeVO> targetNodeVOList) {
-        return queryNodePaths(username, appResourceScope, targetNodeVOList);
     }
 
     // 标准接口2
@@ -372,31 +266,6 @@ public class WebHostResourceImpl implements WebHostResource {
             resultList.add(new NodeHostStatisticsVO(node, agentStatistics));
         }
         return Response.buildSuccessResp(resultList);
-    }
-
-    @Override
-    public Response<List<NodeInfoVO>> listHostByNode(String username,
-                                                     AppResourceScope appResourceScope,
-                                                     String scopeType,
-                                                     String scopeId,
-                                                     List<TargetNodeVO> targetNodeVOList) {
-        ApplicationDTO appDTO = applicationService.getAppByScope(appResourceScope);
-        if (appDTO.isBizSet()) {
-            String msg = "topo node of bizset not supported yet";
-            throw new NotImplementedException(msg, ErrorCode.NOT_SUPPORT_FEATURE);
-        }
-        List<NodeInfoVO> moduleHostInfoList = hostService.getBizHostsByNode(
-            username,
-            appDTO.getBizIdIfBizApp(),
-            targetNodeVOList.stream().map(it -> new BizTopoNode(
-                it.getObjectId(),
-                "",
-                it.getInstanceId(),
-                "",
-                null
-            )).collect(Collectors.toList())
-        );
-        return Response.buildSuccessResp(moduleHostInfoList);
     }
 
     // 标准接口6
@@ -473,41 +342,6 @@ public class WebHostResourceImpl implements WebHostResource {
         return Response.buildSuccessResp(PageUtil.transferPageData(pageData, ApplicationHostDTO::toVO));
     }
 
-    @Override
-    public Response<List<DynamicGroupInfoVO>> listAppDynamicGroupHost(String username,
-                                                                      AppResourceScope appResourceScope,
-                                                                      String scopeType,
-                                                                      String scopeId, List<String> dynamicGroupIds) {
-        // 目前只有业务支持动态分组
-        if (appResourceScope.getType() == ResourceScopeTypeEnum.BIZ) {
-            List<DynamicGroupWithHost> dynamicGroupList =
-                hostService.getBizDynamicGroupHostList(
-                    username, Long.parseLong(appResourceScope.getId()), dynamicGroupIds
-                );
-            List<DynamicGroupInfoVO> dynamicGroupInfoList = dynamicGroupList.stream()
-                .map(TopologyHelper::convertToDynamicGroupInfoVO)
-                .collect(Collectors.toList());
-            return Response.buildSuccessResp(dynamicGroupInfoList);
-        }
-        return Response.buildSuccessResp(Collections.emptyList());
-    }
-
-    @Override
-    public Response<List<DynamicGroupInfoVO>> listAppDynamicGroupWithoutHosts(String username,
-                                                                              AppResourceScope appResourceScope,
-                                                                              String scopeType,
-                                                                              String scopeId,
-                                                                              List<String> dynamicGroupIds) {
-        List<DynamicGroupWithHost> dynamicGroupList = hostService.getAppDynamicGroupList(
-            username, appResourceScope
-        );
-        List<DynamicGroupInfoVO> dynamicGroupInfoList = dynamicGroupList.stream()
-            .filter(dynamicGroupInfoDTO -> dynamicGroupIds.contains(dynamicGroupInfoDTO.getId()))
-            .map(TopologyHelper::convertToDynamicGroupInfoVO)
-            .collect(Collectors.toList());
-        return Response.buildSuccessResp(dynamicGroupInfoList);
-    }
-
     // 标准接口9
     @Override
     public Response<List<HostInfoVO>> checkHosts(String username,
@@ -528,7 +362,7 @@ public class WebHostResourceImpl implements WebHostResource {
             if (cloudAreaInfo != null
                 && cloudAreaInfo.getId() != null
                 && StringUtils.isBlank(cloudAreaInfo.getName())) {
-                cloudAreaInfo.setName(CloudAreaService.getCloudAreaNameFromCache(cloudAreaInfo.getId()));
+                cloudAreaInfo.setName(BkNetClient.getCloudAreaNameFromCache(cloudAreaInfo.getId()));
             }
         });
         return Response.buildSuccessResp(hostList);
@@ -536,54 +370,14 @@ public class WebHostResourceImpl implements WebHostResource {
 
     private List<ApplicationHostDTO> findHosts(AppResourceScope appResourceScope, HostCheckReq req) {
         List<ApplicationHostDTO> hostDTOList = new ArrayList<>();
-        List<Long> hostIdList = req.getHostIdList();
-        if (CollectionUtils.isNotEmpty(hostIdList)) {
-            // 根据hostId查资源范围及白名单内的主机详情
-            hostDTOList.addAll(whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByHostId(
-                appResourceScope,
-                req.getActionScope(),
-                hostIdList
-            ));
-        }
-        List<String> ipOrCloudIpList = req.getIpList();
-        if (CollectionUtils.isNotEmpty(ipOrCloudIpList)) {
-            Pair<List<String>, List<String>> pair = IpUtils.separateIpAndCloudIps(ipOrCloudIpList);
-            List<String> ipList = pair.getLeft();
-            List<String> cloudIpList = pair.getRight();
-            // 根据ip地址查资源范围及白名单内的主机详情
-            if (CollectionUtils.isNotEmpty(ipList)) {
-                hostDTOList.addAll(whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByIp(
-                    appResourceScope,
-                    req.getActionScope(),
-                    ipList
-                ));
-            }
-            if (CollectionUtils.isNotEmpty(cloudIpList)) {
-                hostDTOList.addAll(whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByCloudIp(
-                    appResourceScope,
-                    req.getActionScope(),
-                    cloudIpList
-                ));
-            }
-        }
-        List<String> ipv6List = req.getIpv6List();
-        if (CollectionUtils.isNotEmpty(ipv6List)) {
-            // 根据ipv6地址查资源范围及白名单内的主机详情
-            hostDTOList.addAll(whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByIpv6(
-                appResourceScope,
-                req.getActionScope(),
-                ipv6List
-            ));
-        }
-        List<String> keyList = req.getKeyList();
-        if (CollectionUtils.isNotEmpty(keyList)) {
-            // 根据关键字（主机名称）查资源范围及白名单内的主机详情
-            hostDTOList.addAll(whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByKey(
-                appResourceScope,
-                req.getActionScope(),
-                keyList
-            ));
-        }
+        // 根据主机ID解析主机
+        findHostsByHostIds(appResourceScope, req.getActionScope(), req.getHostIdList(), hostDTOList);
+        // 根据Ipv4解析主机
+        findHostsByIpv4s(appResourceScope, req.getActionScope(), req.getIpList(), hostDTOList);
+        // 根据Ipv6解析主机
+        findHostsByIpv6s(appResourceScope, req.getActionScope(), req.getIpv6List(), hostDTOList);
+        // 根据关键字（主机名称）解析主机
+        findHostsByKeys(appResourceScope, req.getActionScope(), req.getKeyList(), hostDTOList);
         // 去重
         Set<Long> hostIdSet = new HashSet<>();
         Iterator<ApplicationHostDTO> iterator = hostDTOList.iterator();
@@ -596,6 +390,96 @@ public class WebHostResourceImpl implements WebHostResource {
             }
         }
         return hostDTOList;
+    }
+
+    private void findHostsByHostIds(AppResourceScope appResourceScope,
+                                    ActionScopeEnum actionScope,
+                                    List<Long> hostIdList,
+                                    List<ApplicationHostDTO> hostDTOList) {
+        if (CollectionUtils.isNotEmpty(hostIdList)) {
+            // 根据hostId查资源范围及白名单内的主机详情
+            hostDTOList.addAll(whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByHostId(
+                appResourceScope,
+                actionScope,
+                hostIdList
+            ));
+        }
+    }
+
+    private void findHostsByIpv4s(AppResourceScope appResourceScope,
+                                  ActionScopeEnum actionScope,
+                                  List<String> ipOrCloudIpList,
+                                  List<ApplicationHostDTO> hostDTOList) {
+        if (CollectionUtils.isEmpty(ipOrCloudIpList)) {
+            return;
+        }
+        Pair<Set<String>, Set<String>> pair = IpUtils.parseCleanIpv4AndCloudIpv4s(ipOrCloudIpList);
+        Set<String> ipSet = pair.getLeft();
+        Set<String> cloudIpSet = pair.getRight();
+        // 根据ip地址查资源范围及白名单内的主机详情
+        if (CollectionUtils.isNotEmpty(ipSet)) {
+            hostDTOList.addAll(whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByIp(
+                appResourceScope,
+                actionScope,
+                ipSet
+            ));
+        }
+        if (CollectionUtils.isNotEmpty(cloudIpSet)) {
+            hostDTOList.addAll(whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByCloudIp(
+                appResourceScope,
+                actionScope,
+                cloudIpSet
+            ));
+        }
+    }
+
+    private void findHostsByIpv6s(AppResourceScope appResourceScope,
+                                  ActionScopeEnum actionScope,
+                                  List<String> ipv6OrCloudIpv6List,
+                                  List<ApplicationHostDTO> hostDTOList) {
+        if (CollectionUtils.isEmpty(ipv6OrCloudIpv6List)) {
+            return;
+        }
+        Pair<Set<String>, Set<Pair<Long, String>>> pair = IpUtils.parseFullIpv6AndCloudIpv6s(ipv6OrCloudIpv6List);
+        Set<String> ipv6Set = pair.getLeft();
+        Set<Pair<Long, String>> cloudIpv6Set = pair.getRight();
+        Set<String> allIpv6Set = new HashSet<>(ipv6Set);
+        Map<String, Long> ipv6CloudIdMap = new HashMap<>();
+        for (Pair<Long, String> cloudIpv6 : cloudIpv6Set) {
+            allIpv6Set.add(cloudIpv6.getRight());
+            ipv6CloudIdMap.put(cloudIpv6.getRight(), cloudIpv6.getLeft());
+        }
+        List<ApplicationHostDTO> hostList = whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByIpv6(
+            appResourceScope,
+            actionScope,
+            allIpv6Set
+        );
+        for (ApplicationHostDTO host : hostList) {
+            String ipv6 = host.getIpv6();
+            Long cloudId = host.getCloudAreaId();
+            // 未指定云区域ID的数据匹配所有ipv6符合的数据
+            if (ipv6Set.contains(ipv6) ||
+                // 指定了云区域ID的数据需要精确匹配
+                (ipv6CloudIdMap.containsKey(ipv6) && cloudId.equals(ipv6CloudIdMap.get(ipv6)))) {
+                // 根据ipv6地址查资源范围及白名单内的主机详情
+                hostDTOList.add(host);
+            }
+        }
+    }
+
+    private void findHostsByKeys(AppResourceScope appResourceScope,
+                                 ActionScopeEnum actionScope,
+                                 List<String> keyList,
+                                 List<ApplicationHostDTO> hostDTOList) {
+        if (CollectionUtils.isEmpty(keyList)) {
+            return;
+        }
+        // 根据关键字（主机名称）查资源范围及白名单内的主机详情
+        hostDTOList.addAll(whiteIpAwareScopeHostService.getScopeHostsIncludingWhiteIPByKey(
+            appResourceScope,
+            actionScope,
+            keyList
+        ));
     }
 
     // 标准接口10
@@ -629,15 +513,6 @@ public class WebHostResourceImpl implements WebHostResource {
                                                      String scopeId,
                                                      AgentStatisticsReq agentStatisticsReq) {
         List<ApplicationHostDTO> allHostList = new ArrayList<>();
-        List<String> ipList = agentStatisticsReq.getIpList();
-        if (CollectionUtils.isNotEmpty(ipList)) {
-            List<ApplicationHostDTO> hostsByIp = scopeHostService.getScopeHostsByCloudIps(
-                appResourceScope,
-                ipList
-            );
-            log.debug("hostsByIp={}", hostsByIp);
-            allHostList.addAll(hostsByIp);
-        }
         List<HostIdWithMeta> hostList = agentStatisticsReq.getHostList();
         if (CollectionUtils.isNotEmpty(hostList)) {
             List<ApplicationHostDTO> hostsById = scopeHostService.getScopeHostsByIds(

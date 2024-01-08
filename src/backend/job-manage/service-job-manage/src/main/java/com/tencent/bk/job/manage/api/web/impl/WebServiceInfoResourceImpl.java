@@ -24,18 +24,25 @@
 
 package com.tencent.bk.job.manage.api.web.impl;
 
+import com.tencent.bk.audit.annotations.ActionAuditRecord;
+import com.tencent.bk.audit.annotations.AuditEntry;
+import com.tencent.bk.job.common.audit.constants.EventContentConstants;
+import com.tencent.bk.job.common.constant.ProfileEnum;
+import com.tencent.bk.job.common.iam.constant.ActionId;
 import com.tencent.bk.job.common.model.Response;
 import com.tencent.bk.job.manage.api.web.WebServiceInfoResource;
 import com.tencent.bk.job.manage.model.web.vo.serviceinfo.ServiceInfoVO;
 import com.tencent.bk.job.manage.service.impl.ServiceInfoService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
 @Slf4j
+@Profile("!" + ProfileEnum.Constants.TEST)
 public class WebServiceInfoResourceImpl implements WebServiceInfoResource {
 
     private final ServiceInfoService serviceInfoService;
@@ -46,6 +53,11 @@ public class WebServiceInfoResourceImpl implements WebServiceInfoResource {
     }
 
     @Override
+    @AuditEntry(actionId = ActionId.SERVICE_STATE_ACCESS)
+    @ActionAuditRecord(
+        actionId = ActionId.SERVICE_STATE_ACCESS,
+        content = EventContentConstants.VIEW_PLATFORM_SERVICE_STAT
+    )
     public Response<List<ServiceInfoVO>> listServiceInfo(String username) {
         return Response.buildSuccessResp(serviceInfoService.listServiceInfo());
     }

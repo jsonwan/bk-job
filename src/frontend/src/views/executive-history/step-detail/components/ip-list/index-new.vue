@@ -90,7 +90,7 @@
         sortable
         :width="100">
         <template slot-scope="{ row }">
-          {{ row.exitCode || '--' }}
+          {{ row.exitCode }}
         </template>
       </bk-table-column>
       <bk-table-column
@@ -113,10 +113,11 @@
         </template>
       </bk-table-column>
       <bk-table-column
+        fixed="right"
         label-class-name="setting-column"
         :render-header="renderSettingHeader"
         :resizable="false"
-        :width="45">
+        :width="46">
         <template slot-scope="{ row }">
           <icon
             v-if="row.key === selectRowKey"
@@ -164,6 +165,7 @@
   import _ from 'lodash';
   import {
     computed,
+    onBeforeUnmount,
     onMounted,
     reactive,
     ref,
@@ -277,8 +279,13 @@
   });
   const tableMaxHeight = ref(0);
   const selectRowKey = ref('');
+  const windowInnerWidth = ref(window.innerWidth);
+  const positionLeftOffset = ref(0);
 
   const styles = computed(() => {
+    const rightLogWidth = 800;
+    const paddingLeft = 24;
+    const maxWidth = windowInnerWidth.value - positionLeftOffset.value - rightLogWidth - paddingLeft;
     const allShowColumnMap = makeMap(allShowColumn.value);
     const allShowColumnWidth = columnList.value.reduce((result, item) => {
       if (allShowColumnMap[item.name]) {
@@ -288,7 +295,7 @@
     }, 65);
 
     return {
-      width: `${Math.max(allShowColumnWidth, 217)}px`,
+      width: `${Math.min(Math.max(allShowColumnWidth, 217), maxWidth)}px`,
     };
   });
 
@@ -308,6 +315,9 @@
   };
 
   watch(() => props.data, () => {
+    if (listRef.value) {
+      positionLeftOffset.value = listRef.value.getBoundingClientRect().left;
+    }
     // 切换分组时最新的分组数据一定来自API返回数据
     // listLoading为false说明是本地切换不更新列表
     if (!props.listLoading) {
@@ -428,9 +438,20 @@
     emits('on-clear-search');
   };
 
+  const handleWindowResize = _.throttle(() => {
+    windowInnerWidth.value = window.innerWidth;
+  }, 60);
+
   onMounted(() => {
     calcPageSize();
     tableMaxHeight.value = listRef.value.getBoundingClientRect().height;
+
+    console.log('tableMaxHeight = ', tableMaxHeight.value);
+
+    window.addEventListener('resize', handleWindowResize);
+    onBeforeUnmount(() => {
+      window.removeEventListener('resize', handleWindowResize);
+    });
   });
 </script>
 <style lang='postcss'>
@@ -472,6 +493,17 @@
 
         .cell{
           color: #63656e;
+        }
+      }
+
+      .bk-table-fixed-right{
+        bottom: 0 !important;
+        width: 45px !important;
+
+        .bk-table-row-last{
+          td.is-last{
+            border-bottom: 1px solid #dfe0e5;
+          }
         }
       }
     }

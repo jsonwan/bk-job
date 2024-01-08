@@ -42,7 +42,7 @@ import com.tencent.bk.job.manage.model.dto.ScriptDTO;
 import com.tencent.bk.job.manage.model.esb.EsbScriptDTO;
 import com.tencent.bk.job.manage.model.esb.request.EsbGetPublicScriptListRequest;
 import com.tencent.bk.job.manage.model.query.ScriptQuery;
-import com.tencent.bk.job.manage.service.ScriptService;
+import com.tencent.bk.job.manage.service.PublicScriptService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -56,15 +56,17 @@ import java.util.List;
 @Slf4j
 public class EsbGetPublicScriptListResourceImpl implements EsbGetPublicScriptListResource {
 
-    private final ScriptService scriptService;
+    private final PublicScriptService publicScriptService;
 
-    public EsbGetPublicScriptListResourceImpl(ScriptService scriptService) {
-        this.scriptService = scriptService;
+    public EsbGetPublicScriptListResourceImpl(PublicScriptService publicScriptService) {
+        this.publicScriptService = publicScriptService;
     }
 
     @Override
     @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v2_get_public_script_list"})
-    public EsbResp<EsbPageData<EsbScriptDTO>> getPublicScriptList(EsbGetPublicScriptListRequest request) {
+    public EsbResp<EsbPageData<EsbScriptDTO>> getPublicScriptList(String username,
+                                                                  String appCode,
+                                                                  EsbGetPublicScriptListRequest request) {
         ValidateResult checkResult = checkRequest(request);
         if (!checkResult.isPass()) {
             log.warn("Get public script list, request is illegal!");
@@ -85,8 +87,9 @@ public class EsbGetPublicScriptListResourceImpl implements EsbGetPublicScriptLis
         BaseSearchCondition baseSearchCondition = new BaseSearchCondition();
         baseSearchCondition.setStart(request.getStart());
         baseSearchCondition.setLength(request.getLength());
+        scriptQuery.setBaseSearchCondition(baseSearchCondition);
 
-        PageData<ScriptDTO> pageScripts = scriptService.listPageScriptVersion(scriptQuery, baseSearchCondition);
+        PageData<ScriptDTO> pageScripts = publicScriptService.listPageScriptVersion(scriptQuery);
         EsbPageData<EsbScriptDTO> result = convertToPageEsbScriptDTO(pageScripts, returnScriptContent);
         return EsbResp.buildSuccessResp(result);
     }

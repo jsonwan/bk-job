@@ -29,6 +29,7 @@ import com.tencent.bk.job.common.model.PageData;
 import com.tencent.bk.job.common.model.Response;
 import com.tencent.bk.job.common.model.dto.AppResourceScope;
 import com.tencent.bk.job.manage.model.web.request.CredentialCreateUpdateReq;
+import com.tencent.bk.job.manage.model.web.vo.CredentialBasicVO;
 import com.tencent.bk.job.manage.model.web.vo.CredentialVO;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -37,6 +38,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -89,10 +91,33 @@ public interface WebCredentialResource {
             Integer pageSize
     );
 
+    @ApiOperation(value = "分页获取凭据基础信息", produces = "application/json")
+    @GetMapping("/basicInfo/list")
+    Response<PageData<CredentialBasicVO>> listCredentialBasicInfo(
+        @ApiParam("用户名，网关自动传入")
+        @RequestHeader("username")
+            String username,
+        @ApiIgnore
+        @RequestAttribute(value = "appResourceScope")
+            AppResourceScope appResourceScope,
+        @ApiParam(value = "资源范围类型", required = true)
+        @PathVariable(value = "scopeType")
+            String scopeType,
+        @ApiParam(value = "资源范围ID", required = true)
+        @PathVariable(value = "scopeId")
+            String scopeId,
+        @ApiParam("分页-开始，不传默认为0")
+        @RequestParam(value = "start", required = false)
+            Integer start,
+        @ApiParam("分页-每页大小，不传默认拉取全量数据")
+        @RequestParam(value = "pageSize", required = false)
+            Integer pageSize
+    );
 
-    @ApiOperation(value = "新增/更新凭据", produces = "application/json")
-    @PostMapping("")
-    Response<String> saveCredential(
+
+    @ApiOperation(value = "新增凭据", produces = "application/json")
+    @PostMapping
+    Response<CredentialVO> createCredential(
         @ApiParam(value = "用户名，网关自动传入", required = true)
         @RequestHeader("username")
             String username,
@@ -105,7 +130,30 @@ public interface WebCredentialResource {
         @ApiParam(value = "资源范围ID", required = true)
         @PathVariable(value = "scopeId")
             String scopeId,
-        @ApiParam(value = "创建或更新请求体", required = true)
+        @ApiParam(value = "创建请求体", required = true)
+        @RequestBody
+            CredentialCreateUpdateReq createUpdateReq
+    );
+
+    @ApiOperation(value = "更新凭据", produces = "application/json")
+    @PutMapping("/{credentialId}")
+    Response<CredentialVO> updateCredential(
+        @ApiParam(value = "用户名，网关自动传入", required = true)
+        @RequestHeader("username")
+            String username,
+        @ApiIgnore
+        @RequestAttribute(value = "appResourceScope")
+            AppResourceScope appResourceScope,
+        @ApiParam(value = "资源范围类型", required = true)
+        @PathVariable(value = "scopeType")
+            String scopeType,
+        @ApiParam(value = "资源范围ID", required = true)
+        @PathVariable(value = "scopeId")
+            String scopeId,
+        @ApiParam(value = "资源范围ID", required = true)
+        @PathVariable(value = "credentialId")
+            String credentialId,
+        @ApiParam(value = "更新请求体", required = true)
         @RequestBody
             CredentialCreateUpdateReq createUpdateReq
     );

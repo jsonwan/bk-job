@@ -1,4 +1,4 @@
-{{- if .Values.manageConfig.enabled }}
+{{- if and .Values.manageConfig.enabled (eq .Values.deploy.mode "standard") }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
@@ -34,6 +34,7 @@ spec:
       annotations:
         {{ include "annotations.sha256sum.configmap" ( dict "service" "job-manage" "context" . ) | nindent 8 }}
     spec:
+      {{- include "job.podTerminationGracePeriodSeconds" . | nindent 6 }}
       {{- include "job.imagePullSecrets" . | nindent 6 }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
       {{- if .Values.manageConfig.affinity }}
@@ -123,7 +124,7 @@ spec:
       volumes:
         - name: job-storage
           persistentVolumeClaim:
-            claimName: {{ include "common.names.fullname" . }}-pv-claim
+            claimName: {{ include "job.storage.pvc.name" . }}
         - name: mariadb
           secret:
             secretName: {{ include "job.mariadb.secretName" . }}

@@ -33,6 +33,10 @@ import com.tencent.bk.job.execute.common.util.JooqDataTypeUtil;
 import com.tencent.bk.job.execute.dao.TaskInstanceDAO;
 import com.tencent.bk.job.execute.model.TaskInstanceDTO;
 import com.tencent.bk.job.execute.model.TaskInstanceQuery;
+import com.tencent.bk.job.execute.model.tables.StepInstance;
+import com.tencent.bk.job.execute.model.tables.TaskInstance;
+import com.tencent.bk.job.execute.model.tables.TaskInstanceHost;
+import com.tencent.bk.job.execute.model.tables.records.TaskInstanceRecord;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -46,10 +50,6 @@ import org.jooq.SelectSeekStep1;
 import org.jooq.SortField;
 import org.jooq.UpdateSetMoreStep;
 import org.jooq.conf.ParamType;
-import org.jooq.generated.tables.StepInstance;
-import org.jooq.generated.tables.TaskInstance;
-import org.jooq.generated.tables.TaskInstanceHost;
-import org.jooq.generated.tables.records.TaskInstanceRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
@@ -83,7 +83,7 @@ public class TaskInstanceDAOImpl implements TaskInstanceDAO {
             TASK_INSTANCE.STATUS, TASK_INSTANCE.START_TIME,
             TASK_INSTANCE.END_TIME, TASK_INSTANCE.TOTAL_TIME, TASK_INSTANCE.CREATE_TIME, TASK_INSTANCE.CALLBACK_URL,
             TASK_INSTANCE.TYPE, TASK_INSTANCE.APP_CODE)
-            .values(taskInstance.getTaskId(),
+            .values(taskInstance.getPlanId(),
                 taskInstance.getCronTaskId(),
                 taskInstance.getTaskTemplateId(),
                 taskInstance.isDebugTask() ? (byte) 1 : (byte) 0,
@@ -124,7 +124,7 @@ public class TaskInstanceDAOImpl implements TaskInstanceDAO {
         }
         TaskInstanceDTO taskInstance = new TaskInstanceDTO();
         taskInstance.setId(record.get(TaskInstance.TASK_INSTANCE.ID));
-        taskInstance.setTaskId(record.get(TaskInstance.TASK_INSTANCE.TASK_ID));
+        taskInstance.setPlanId(record.get(TaskInstance.TASK_INSTANCE.TASK_ID));
         taskInstance.setCronTaskId(record.get(TaskInstance.TASK_INSTANCE.CRON_TASK_ID));
         taskInstance.setTaskTemplateId(record.get(TaskInstance.TASK_INSTANCE.TASK_TEMPLATE_ID));
         taskInstance.setDebugTask(record.get(TaskInstance.TASK_INSTANCE.IS_DEBUG_TASK) == 1);

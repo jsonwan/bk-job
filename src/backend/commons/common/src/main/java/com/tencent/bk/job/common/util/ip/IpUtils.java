@@ -32,17 +32,19 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.validator.routines.InetAddressValidator;
+import org.springframework.util.CollectionUtils;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -326,22 +328,75 @@ public class IpUtils {
     }
 
     /**
-     * 将纯IP与含云区域的IP分离开
+     * 将纯IPv4地址与含云区域的IPv4地址分离开，清洗掉其中的空白字符、中括号并去重
      *
-     * @param ipOrCloudIpList ip/cloudIp列表
-     * @return <纯IP列表，含云区域IP列表>
+     * @param ipv4OrCloudIpv4List ipv4/cloudIpv4列表
+     * @return <纯IPv4地址集合，含云区域IPv4地址集合>
      */
-    public static Pair<List<String>, List<String>> separateIpAndCloudIps(List<String> ipOrCloudIpList) {
-        List<String> ipList = new ArrayList<>();
-        List<String> cloudIpList = new ArrayList<>();
-        for (String ipOrCloudIp : ipOrCloudIpList) {
-            if (ipOrCloudIp.contains(":")) {
-                cloudIpList.add(ipOrCloudIp);
+    public static Pair<Set<String>, Set<String>> parseCleanIpv4AndCloudIpv4s(List<String> ipv4OrCloudIpv4List) {
+        Set<String> ipv4Set = new HashSet<>();
+        Set<String> cloudIpv4Set = new HashSet<>();
+        if (CollectionUtils.isEmpty(ipv4OrCloudIpv4List)) {
+            return Pair.of(ipv4Set, cloudIpv4Set);
+        }
+        for (String ipv4OrCloudIpv4 : ipv4OrCloudIpv4List) {
+            if (ipv4OrCloudIpv4.contains(":")) {
+                String cloudIpStr = StringUtils.deleteWhitespace(ipv4OrCloudIpv4);
+                cloudIpv4Set.add(removeBrackets(cloudIpStr));
             } else {
-                ipList.add(ipOrCloudIp);
+                ipv4Set.add(StringUtils.deleteWhitespace(ipv4OrCloudIpv4));
             }
         }
-        return Pair.of(ipList, cloudIpList);
+        return Pair.of(ipv4Set, cloudIpv4Set);
+    }
+
+    private static String removeBrackets(String s) {
+        if (StringUtils.isBlank(s)) {
+            return s;
+        }
+        return s.replace("[", "").replace("]", "");
+    }
+
+    /**
+     * 将纯IPv6地址与含云区域的IPv6地址分离开，清洗掉其中的空白字符、中括号、去重并转为完整无压缩的IPv6地址
+     *
+     * @param ipv6OrCloudIpv6List ipv6/cloudIpv6列表
+     * @return <纯IPv6地址集合，含云区域IPv6地址集合>
+     */
+    public static Pair<Set<String>, Set<Pair<Long, String>>> parseFullIpv6AndCloudIpv6s(
+        List<String> ipv6OrCloudIpv6List
+    ) {
+        Set<String> ipv6Set = new HashSet<>();
+        Set<Pair<Long, String>> cloudIpv6Set = new HashSet<>();
+        if (CollectionUtils.isEmpty(ipv6OrCloudIpv6List)) {
+            return Pair.of(ipv6Set, cloudIpv6Set);
+        }
+        for (String ipv6OrCloudIpv6 : ipv6OrCloudIpv6List) {
+            ipv6OrCloudIpv6 = StringUtils.deleteWhitespace(ipv6OrCloudIpv6);
+            if (ipv6OrCloudIpv6.contains(":[")) {
+                String[] cloudIpv6Arr = ipv6OrCloudIpv6.split(":\\[");
+                Long cloudId = Long.parseLong(cloudIpv6Arr[0]);
+                String ipv6 = removeBrackets(cloudIpv6Arr[1]);
+                if (!checkIpv6(ipv6)) {
+                    log.warn("{} is not a valid ipv6 addr, ignore", ipv6);
+                    continue;
+                }
+                if (StringUtils.isBlank(ipv6)) {
+                    log.warn("Ipv6 address is invalid:{}", ipv6OrCloudIpv6);
+                }
+                String fullIpv6 = getFullIpv6ByCompressedOne(ipv6);
+                cloudIpv6Set.add(Pair.of(cloudId, fullIpv6));
+            } else {
+                String ipv6 = removeBrackets(StringUtils.deleteWhitespace(ipv6OrCloudIpv6));
+                if (!checkIpv6(ipv6)) {
+                    log.warn("{} is not a valid ipv6 addr, ignore", ipv6);
+                    continue;
+                }
+                String fullIpv6 = getFullIpv6ByCompressedOne(ipv6);
+                ipv6Set.add(fullIpv6);
+            }
+        }
+        return Pair.of(ipv6Set, cloudIpv6Set);
     }
 
     /**

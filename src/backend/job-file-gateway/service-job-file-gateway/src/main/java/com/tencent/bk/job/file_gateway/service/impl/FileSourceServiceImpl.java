@@ -25,9 +25,20 @@
 package com.tencent.bk.job.file_gateway.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.tencent.bk.audit.annotations.ActionAuditRecord;
+import com.tencent.bk.audit.annotations.AuditInstanceRecord;
+import com.tencent.bk.audit.context.ActionAuditContext;
+import com.tencent.bk.job.common.audit.JobAuditAttributeNames;
+import com.tencent.bk.job.common.audit.constants.EventContentConstants;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.exception.AlreadyExistsException;
+import com.tencent.bk.job.common.exception.FailedPreconditionException;
+import com.tencent.bk.job.common.exception.NotFoundException;
+import com.tencent.bk.job.common.iam.constant.ActionId;
+import com.tencent.bk.job.common.iam.constant.ResourceTypeId;
+import com.tencent.bk.job.common.model.dto.AppResourceScope;
 import com.tencent.bk.job.common.util.json.JsonUtils;
+import com.tencent.bk.job.file_gateway.auth.FileSourceAuthService;
 import com.tencent.bk.job.file_gateway.dao.filesource.FileSourceDAO;
 import com.tencent.bk.job.file_gateway.dao.filesource.FileSourceTypeDAO;
 import com.tencent.bk.job.file_gateway.dao.filesource.FileWorkerDAO;
@@ -39,8 +50,8 @@ import com.tencent.bk.job.file_gateway.model.req.common.FileSourceMetaData;
 import com.tencent.bk.job.file_gateway.model.req.common.FileSourceStaticParam;
 import com.tencent.bk.job.file_gateway.model.req.common.FileWorkerConfig;
 import com.tencent.bk.job.file_gateway.service.FileSourceService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -51,20 +62,23 @@ import java.util.List;
 import java.util.Set;
 
 @Service
+@Slf4j
 public class FileSourceServiceImpl implements FileSourceService {
 
-    private final DSLContext dslContext;
     private final FileSourceTypeDAO fileSourceTypeDAO;
     private final FileSourceDAO fileSourceDAO;
     private final FileWorkerDAO fileWorkerDAO;
+    private final FileSourceAuthService fileSourceAuthService;
 
     @Autowired
-    public FileSourceServiceImpl(DSLContext dslContext, FileSourceTypeDAO fileSourceTypeDAO,
-                                 FileSourceDAO fileSourceDAO, FileWorkerDAO fileWorkerDAO) {
-        this.dslContext = dslContext;
+    public FileSourceServiceImpl(FileSourceTypeDAO fileSourceTypeDAO,
+                                 FileSourceDAO fileSourceDAO,
+                                 FileWorkerDAO fileWorkerDAO,
+                                 FileSourceAuthService fileSourceAuthService) {
         this.fileSourceTypeDAO = fileSourceTypeDAO;
         this.fileSourceDAO = fileSourceDAO;
         this.fileWorkerDAO = fileWorkerDAO;
+        this.fileSourceAuthService = fileSourceAuthService;
     }
 
     @Override
@@ -84,54 +98,127 @@ public class FileSourceServiceImpl implements FileSourceService {
 
     @Override
     public Integer countAvailableFileSource(Long appId, String credentialId, String alias) {
-        return fileSourceDAO.countAvailableLikeFileSource(dslContext, appId, credentialId, alias);
+        return fileSourceDAO.countAvailableLikeFileSource(appId, credentialId, alias);
     }
 
     @Override
     public Integer countWorkTableFileSource(Long appId, String credentialId, String alias) {
-        return fileSourceDAO.countWorkTableFileSource(dslContext, appId, credentialId, alias);
+        return fileSourceDAO.countWorkTableFileSource(appId, credentialId, alias);
     }
 
     @Override
     public Integer countWorkTableFileSource(List<Long> appIdList, List<Integer> idList) {
-        return fileSourceDAO.countWorkTableFileSource(dslContext, appIdList, idList);
+        return fileSourceDAO.countWorkTableFileSource(appIdList, idList);
     }
 
     @Override
     public List<FileSourceDTO> listAvailableFileSource(Long appId, String credentialId, String alias, Integer start,
                                                        Integer pageSize) {
-        return fileSourceDAO.listAvailableFileSource(dslContext, appId, credentialId, alias, start, pageSize);
+        return fileSourceDAO.listAvailableFileSource(appId, credentialId, alias, start, pageSize);
     }
 
     @Override
     public List<FileSourceDTO> listWorkTableFileSource(Long appId, String credentialId, String alias, Integer start,
                                                        Integer pageSize) {
-        return fileSourceDAO.listWorkTableFileSource(dslContext, appId, credentialId, alias, start, pageSize);
+        return fileSourceDAO.listWorkTableFileSource(appId, credentialId, alias, start, pageSize);
     }
 
     @Override
     public List<FileSourceDTO> listWorkTableFileSource(List<Long> appIdList, List<Integer> idList, Integer start,
                                                        Integer pageSize) {
-        return fileSourceDAO.listWorkTableFileSource(dslContext, appIdList, idList, start, pageSize);
+        return fileSourceDAO.listWorkTableFileSource(appIdList, idList, start, pageSize);
     }
 
     @Override
-    public Integer saveFileSource(Long appId, FileSourceDTO fileSourceDTO) {
-        if (fileSourceDAO.checkFileSourceExists(dslContext, fileSourceDTO.getAppId(), fileSourceDTO.getAlias())) {
-            throw new AlreadyExistsException(ErrorCode.FILE_SOURCE_ALIAS_ALREADY_EXISTS,
-                new String[]{fileSourceDTO.getAlias()});
+    @ActionAuditRecord(
+        actionId = ActionId.CREATE_FILE_SOURCE,
+        instance = @AuditInstanceRecord(
+            resourceType = ResourceTypeId.FILE_SOURCE,
+            instanceIds = "#$?.id",
+            instanceNames = "#fileSource?.alias"
+        ),
+        content = EventContentConstants.CREATE_FILE_SOURCE
+    )
+    public FileSourceDTO saveFileSource(String username, Long appId, FileSourceDTO fileSource) {
+        authCreate(username, appId);
+
+        if (existsCode(appId, fileSource.getCode())) {
+            throw new FailedPreconditionException(
+                ErrorCode.FILE_SOURCE_CODE_ALREADY_EXISTS,
+                new String[]{fileSource.getCode()}
+            );
         }
-        return fileSourceDAO.insertFileSource(dslContext, fileSourceDTO);
+
+        if (fileSourceDAO.checkFileSourceExists(fileSource.getAppId(), fileSource.getAlias())) {
+            throw new AlreadyExistsException(ErrorCode.FILE_SOURCE_ALIAS_ALREADY_EXISTS,
+                new String[]{fileSource.getAlias()});
+        }
+
+        Integer id = fileSourceDAO.insertFileSource(fileSource);
+        fileSource.setId(id);
+
+        boolean registerResult = fileSourceAuthService.registerFileSource(
+            username, fileSource.getId(), fileSource.getAlias());
+        if (!registerResult) {
+            log.warn("Fail to register file_source to iam:({},{})", fileSource.getId(), fileSource.getAlias());
+        }
+        return getFileSourceById(id);
+    }
+
+    private void authView(String username, long appId, int fileSourceId) {
+        fileSourceAuthService.authViewFileSource(username, new AppResourceScope(appId), fileSourceId, null)
+            .denyIfNoPermission();
+    }
+
+    private void authCreate(String username, long appId) {
+        fileSourceAuthService.authCreateFileSource(username, new AppResourceScope(appId)).denyIfNoPermission();
+    }
+
+    private void authManage(String username, long appId, int fileSourceId) {
+        fileSourceAuthService.authManageFileSource(username, new AppResourceScope(appId),
+            fileSourceId, null).denyIfNoPermission();
     }
 
     @Override
-    public int updateFileSourceById(Long appId, FileSourceDTO fileSourceDTO) {
-        return fileSourceDAO.updateFileSource(dslContext, fileSourceDTO);
+    @ActionAuditRecord(
+        actionId = ActionId.MANAGE_FILE_SOURCE,
+        instance = @AuditInstanceRecord(
+            resourceType = ResourceTypeId.FILE_SOURCE,
+            instanceIds = "#fileSource?.id",
+            instanceNames = "$?.alias"
+        ),
+        content = EventContentConstants.EDIT_FILE_SOURCE
+    )
+    public FileSourceDTO updateFileSourceById(String username, Long appId, FileSourceDTO fileSource) {
+        authManage(username, appId, fileSource.getId());
+
+        if (existsCodeExceptId(appId, fileSource.getCode(), fileSource.getId())) {
+            throw new FailedPreconditionException(
+                ErrorCode.FILE_SOURCE_CODE_ALREADY_EXISTS,
+                new String[]{fileSource.getCode()}
+            );
+        }
+
+        FileSourceDTO originFileSource = getFileSourceById(fileSource.getId());
+        if (originFileSource == null) {
+            throw new NotFoundException(ErrorCode.FILE_SOURCE_NOT_EXIST);
+        }
+
+        fileSourceDAO.updateFileSource(fileSource);
+
+        FileSourceDTO updateFileSource = getFileSourceById(fileSource.getId());
+
+        // 审计
+        ActionAuditContext.current()
+            .setOriginInstance(FileSourceDTO.toEsbFileSourceV3DTO(fileSource))
+            .setInstance(FileSourceDTO.toEsbFileSourceV3DTO(updateFileSource));
+
+        return updateFileSource;
     }
 
     @Override
     public int updateFileSourceStatus(Integer fileSourceId, Integer status) {
-        return fileSourceDAO.updateFileSourceStatus(dslContext, fileSourceId, status);
+        return fileSourceDAO.updateFileSourceStatus(fileSourceId, status);
     }
 
     @Override
@@ -145,33 +232,83 @@ public class FileSourceServiceImpl implements FileSourceService {
     }
 
     @Override
-    public Integer deleteFileSourceById(Long appId, Integer id) {
-        return fileSourceDAO.deleteFileSourceById(dslContext, id);
+    @ActionAuditRecord(
+        actionId = ActionId.MANAGE_FILE_SOURCE,
+        instance = @AuditInstanceRecord(
+            resourceType = ResourceTypeId.FILE_SOURCE,
+            instanceIds = "#id"
+        ),
+        content = EventContentConstants.DELETE_FILE_SOURCE
+    )
+    public Integer deleteFileSourceById(String username, Long appId, Integer id) {
+        authManage(username, appId, id);
+
+        FileSourceDTO fileSource = getFileSourceById(id);
+        if (fileSource == null) {
+            throw new NotFoundException(ErrorCode.FILE_SOURCE_NOT_EXIST);
+        }
+        ActionAuditContext.current().setInstanceName(fileSource.getAlias());
+
+        return fileSourceDAO.deleteFileSourceById(id);
     }
 
     @Override
+    @ActionAuditRecord(
+        actionId = ActionId.MANAGE_FILE_SOURCE,
+        instance = @AuditInstanceRecord(
+            resourceType = ResourceTypeId.FILE_SOURCE,
+            instanceIds = "#id"
+        ),
+        content = EventContentConstants.SWITCH_FILE_SOURCE_STATUS
+    )
     public Boolean enableFileSourceById(String username, Long appId, Integer id, Boolean enableFlag) {
-        return fileSourceDAO.enableFileSourceById(dslContext, username, appId, id, enableFlag) == 1;
+        authManage(username, appId, id);
+        FileSourceDTO fileSource = getFileSourceById(id);
+        if (fileSource == null) {
+            throw new NotFoundException(ErrorCode.FILE_SOURCE_NOT_EXIST);
+        }
+
+        // 审计
+        ActionAuditContext.current()
+            .setInstanceName(fileSource.getAlias())
+            .addAttribute(JobAuditAttributeNames.OPERATION, enableFlag ? "Switch on" : "Switch off");
+
+        return fileSourceDAO.enableFileSourceById(username, appId, id, enableFlag) == 1;
+    }
+
+    @Override
+    @ActionAuditRecord(
+        actionId = ActionId.VIEW_FILE_SOURCE,
+        instance = @AuditInstanceRecord(
+            resourceType = ResourceTypeId.FILE_SOURCE,
+            instanceIds = "#id",
+            instanceNames = "#$?.alias"
+        ),
+        content = EventContentConstants.VIEW_FILE_SOURCE
+    )
+    public FileSourceDTO getFileSourceById(String username, Long appId, Integer id) {
+        authView(username, appId, id);
+        return getFileSourceById(appId, id);
     }
 
     @Override
     public FileSourceDTO getFileSourceById(Long appId, Integer id) {
-        return fileSourceDAO.getFileSourceById(dslContext, id);
+        return fileSourceDAO.getFileSourceById(id);
     }
 
     @Override
     public FileSourceDTO getFileSourceById(Integer id) {
-        return fileSourceDAO.getFileSourceById(dslContext, id);
+        return fileSourceDAO.getFileSourceById(id);
     }
 
     @Override
     public List<FileSourceBasicInfoDTO> listFileSourceByIds(Collection<Integer> ids) {
-        return fileSourceDAO.listFileSourceByIds(dslContext, ids);
+        return fileSourceDAO.listFileSourceByIds(ids);
     }
 
     @Override
     public FileSourceDTO getFileSourceByCode(String code) {
-        return fileSourceDAO.getFileSourceByCode(dslContext, code);
+        return fileSourceDAO.getFileSourceByCode(code);
     }
 
     private Long chooseAvailableWorker(String fileSourceTypeCode) {
@@ -202,7 +339,7 @@ public class FileSourceServiceImpl implements FileSourceService {
 
     @Override
     public Boolean checkFileSourceAlias(Long appId, String alias, Integer fileSourceId) {
-        int count = fileSourceDAO.countFileSource(dslContext, appId, null, alias);
+        int count = fileSourceDAO.countFileSource(appId, null, alias);
         if (count == 0) {
             return true;
         } else {
@@ -228,6 +365,11 @@ public class FileSourceServiceImpl implements FileSourceService {
     @Override
     public boolean existsFileSource(Long appId, Integer id) {
         return fileSourceDAO.existsFileSource(appId, id);
+    }
+
+    @Override
+    public boolean existsFileSourceUsingCredential(Long appId, String credentialId) {
+        return fileSourceDAO.existsFileSourceUsingCredential(appId, credentialId);
     }
 
     @Override

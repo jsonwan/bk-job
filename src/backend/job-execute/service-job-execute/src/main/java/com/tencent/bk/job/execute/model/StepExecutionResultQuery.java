@@ -25,12 +25,12 @@
 package com.tencent.bk.job.execute.model;
 
 import com.tencent.bk.job.common.constant.Order;
+import com.tencent.bk.job.execute.model.tables.GseTaskIpLog;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
-import org.jooq.generated.tables.GseTaskIpLog;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -89,6 +89,10 @@ public class StepExecutionResultQuery {
      * 执行结果分组下返回的最大任务数
      */
     private Integer maxAgentTasksForResultGroup;
+    /**
+     * 是否获取所有分组下的所有主机执行数据（默认为false，只获取第一个分组中的数据）
+     */
+    private boolean fetchAllGroupData;
     /**
      * 排序字段
      */

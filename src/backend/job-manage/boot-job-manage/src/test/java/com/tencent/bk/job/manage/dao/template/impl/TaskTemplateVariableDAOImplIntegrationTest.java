@@ -39,7 +39,11 @@ import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.jdbc.SqlConfig;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -219,16 +223,13 @@ class TaskTemplateVariableDAOImplIntegrationTest {
     void givenNewVariableInfoReturnUpdateSuccess() {
         assertThat(taskVariableDAO.updateVariableById(VARIABLE_1)).isTrue();
         VARIABLE_1.setName(UUID.randomUUID().toString());
-        VARIABLE_1.setType(TaskVariableTypeEnum.CIPHER);
+        VARIABLE_1.setType(TaskVariableTypeEnum.STRING);
         VARIABLE_1.setDescription(UUID.randomUUID().toString());
         VARIABLE_1.setDefaultValue(UUID.randomUUID().toString());
         VARIABLE_1.setChangeable(!VARIABLE_1.getChangeable());
         VARIABLE_1.setRequired(!VARIABLE_1.getRequired());
         assertThat(taskVariableDAO.updateVariableById(VARIABLE_1)).isTrue();
 
-        assertThat(taskVariableDAO.getVariableById(VARIABLE_1.getTemplateId(), VARIABLE_1.getId()))
-            .isNotEqualTo(VARIABLE_1);
-        VARIABLE_1.setType(TaskVariableTypeEnum.STRING);
         assertThat(taskVariableDAO.getVariableById(VARIABLE_1.getTemplateId(), VARIABLE_1.getId()))
             .isEqualTo(VARIABLE_1);
     }

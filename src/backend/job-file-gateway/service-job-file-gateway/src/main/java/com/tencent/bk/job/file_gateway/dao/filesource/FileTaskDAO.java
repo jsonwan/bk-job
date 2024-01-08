@@ -25,32 +25,27 @@
 package com.tencent.bk.job.file_gateway.dao.filesource;
 
 import com.tencent.bk.job.file_gateway.model.dto.FileTaskDTO;
-import org.jooq.DSLContext;
 
 import java.util.Collection;
 import java.util.List;
 
 public interface FileTaskDAO {
-    Long insertFileTask(DSLContext dslContext, FileTaskDTO fileTaskDTO);
+    Long insertFileTask(FileTaskDTO fileTaskDTO);
 
-    int updateFileTask(DSLContext dslContext, FileTaskDTO fileTaskDTO);
+    int updateFileTask(FileTaskDTO fileTaskDTO);
 
-    int resetFileTasks(DSLContext dslContext, String fileSourceTaskId);
+    int resetFileTasks(String fileSourceTaskId);
 
-    int deleteFileTaskById(DSLContext dslContext, Long id);
+    int deleteFileTaskByFileSourceTaskId(String fileSourceTaskId);
 
-    int deleteFileTaskByFileSourceTaskId(DSLContext dslContext, String fileSourceTaskId);
+    FileTaskDTO getFileTaskByIdForUpdate(Long id);
 
-    FileTaskDTO getFileTaskById(DSLContext dslContext, Long id);
-
-    FileTaskDTO getOneFileTask(DSLContext dslContext, String fileSourceTaskId, String filePath);
-
-    Long countFileTasks(DSLContext dslContext, String fileSourceTaskId);
+    FileTaskDTO getOneFileTask(String fileSourceTaskId, String filePath);
 
     List<FileTaskDTO> listFileTasks(String fileSourceTaskId, Integer start, Integer pageSize);
 
-    List<String> listTimeoutFileSourceTaskIds(DSLContext dslContext, Long expireTimeMills, Collection<Byte> statusSet
-        , Integer start, Integer pageSize);
+    List<String> listTimeoutFileSourceTaskIds(Long expireTimeMills, Collection<Byte> statusSet, Integer start,
+                                              Integer pageSize);
 
     List<FileTaskDTO> listFileTasks(String fileSourceTaskId);
 

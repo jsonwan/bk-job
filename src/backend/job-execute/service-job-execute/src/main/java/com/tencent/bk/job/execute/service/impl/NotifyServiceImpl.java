@@ -27,13 +27,11 @@ package com.tencent.bk.job.execute.service.impl;
 import com.tencent.bk.job.common.i18n.locale.LocaleUtils;
 import com.tencent.bk.job.common.i18n.service.MessageI18nService;
 import com.tencent.bk.job.common.model.dto.UserRoleInfoDTO;
+import com.tencent.bk.job.common.service.config.JobCommonConfig;
 import com.tencent.bk.job.common.util.JobContextUtil;
 import com.tencent.bk.job.common.util.date.DateUtils;
-import com.tencent.bk.job.execute.client.ServiceNotificationResourceClient;
-import com.tencent.bk.job.execute.client.ServiceUserResourceClient;
 import com.tencent.bk.job.execute.common.constants.StepExecuteTypeEnum;
 import com.tencent.bk.job.execute.common.constants.TaskStartupModeEnum;
-import com.tencent.bk.job.execute.config.JobExecuteConfig;
 import com.tencent.bk.job.execute.engine.listener.event.TaskExecuteMQEventDispatcher;
 import com.tencent.bk.job.execute.model.NotifyDTO;
 import com.tencent.bk.job.execute.model.StepInstanceBaseDTO;
@@ -45,6 +43,8 @@ import com.tencent.bk.job.execute.service.FileAgentTaskService;
 import com.tencent.bk.job.execute.service.NotifyService;
 import com.tencent.bk.job.execute.service.ScriptAgentTaskService;
 import com.tencent.bk.job.execute.service.TaskInstanceService;
+import com.tencent.bk.job.manage.api.inner.ServiceNotificationResource;
+import com.tencent.bk.job.manage.api.inner.ServiceUserResource;
 import com.tencent.bk.job.manage.common.consts.notify.ExecuteStatusEnum;
 import com.tencent.bk.job.manage.common.consts.notify.NotifyConsts;
 import com.tencent.bk.job.manage.common.consts.notify.ResourceTypeEnum;
@@ -76,7 +76,7 @@ import java.util.Properties;
 import java.util.Set;
 
 @Slf4j
-@Service
+@Service("jobExecuteNotifyService")
 public class NotifyServiceImpl implements NotifyService {
     private static final Properties templatePropsEN = new Properties();
     private static final Properties templatePropsZH = new Properties();
@@ -85,9 +85,9 @@ public class NotifyServiceImpl implements NotifyService {
         loadNotifyTemplate();
     }
 
-    private final JobExecuteConfig jobExecuteConfig;
-    private final ServiceNotificationResourceClient notificationResourceClient;
-    private final ServiceUserResourceClient userResourceClient;
+    private final JobCommonConfig jobCommonConfig;
+    private final ServiceNotificationResource notificationResource;
+    private final ServiceUserResource userResource;
     private final ApplicationService applicationService;
     private final TaskInstanceService taskInstanceService;
     private final MessageI18nService i18nService;
@@ -96,18 +96,18 @@ public class NotifyServiceImpl implements NotifyService {
     private final TaskExecuteMQEventDispatcher taskExecuteMQEventDispatcher;
 
     @Autowired
-    public NotifyServiceImpl(JobExecuteConfig jobExecuteConfig,
-                             ServiceNotificationResourceClient notificationResourceClient,
-                             ServiceUserResourceClient userResourceClient,
+    public NotifyServiceImpl(JobCommonConfig jobCommonConfig,
+                             ServiceNotificationResource notificationResource,
+                             ServiceUserResource userResource,
                              ApplicationService applicationService,
                              TaskInstanceService taskInstanceService,
                              MessageI18nService i18nService,
                              ScriptAgentTaskService scriptAgentTaskService,
                              FileAgentTaskService fileAgentTaskService,
                              TaskExecuteMQEventDispatcher taskExecuteMQEventDispatcher) {
-        this.jobExecuteConfig = jobExecuteConfig;
-        this.notificationResourceClient = notificationResourceClient;
-        this.userResourceClient = userResourceClient;
+        this.jobCommonConfig = jobCommonConfig;
+        this.notificationResource = notificationResource;
+        this.userResource = userResource;
         this.applicationService = applicationService;
         this.taskInstanceService = taskInstanceService;
         this.i18nService = i18nService;
@@ -190,7 +190,7 @@ public class NotifyServiceImpl implements NotifyService {
         trigger.setAppId(taskNotifyDTO.getAppId());
         trigger.setTriggerUser(taskNotifyDTO.getOperator());
         Integer startupMode = taskNotifyDTO.getStartupMode();
-        if (startupMode.equals(TaskStartupModeEnum.NORMAL.getValue())) {
+        if (startupMode.equals(TaskStartupModeEnum.WEB.getValue())) {
             trigger.setTriggerType(TriggerTypeEnum.PAGE_EXECUTE.getType());
         } else if (startupMode.equals(TaskStartupModeEnum.API.getValue())) {
             trigger.setTriggerType(TriggerTypeEnum.API_INVOKE.getType());
@@ -206,7 +206,7 @@ public class NotifyServiceImpl implements NotifyService {
     }
 
     private String buildJobExecuteDetailUrl(Long taskInstanceId) {
-        return jobExecuteConfig.getJobWebUrl() + "/api_execute/" + taskInstanceId;
+        return jobCommonConfig.getJobWebUrl() + "/api_execute/" + taskInstanceId;
     }
 
     @Override
@@ -234,7 +234,7 @@ public class NotifyServiceImpl implements NotifyService {
         triggerTemplateNotificationDTO.setTriggerDTO(trigger);
         triggerTemplateNotificationDTO.setTemplateCode(getTemplateCodeByExecuteStatus(executeStatus));
         triggerTemplateNotificationDTO.setVariablesMap(getTemplateVariablesMap(taskNotifyDTO, executeStatus));
-        notificationResourceClient.triggerTemplateNotification(triggerTemplateNotificationDTO);
+        notificationResource.triggerTemplateNotification(triggerTemplateNotificationDTO);
     }
 
     private Map<String, String> getTemplateVariablesMap(TaskNotifyDTO taskNotifyDTO, ExecuteStatusEnum executeStatus) {
@@ -299,11 +299,11 @@ public class NotifyServiceImpl implements NotifyService {
             locale = Locale.ENGLISH;
         }
         if (taskNotifyDTO.getResourceType() == ResourceTypeEnum.SCRIPT.getType()) {
-            variablesMap.put("task.type", i18nService.getI18n("task.type.name.fast_execute_script", locale));
+            variablesMap.put("task.type", i18nService.getI18n(locale, "task.type.name.fast_execute_script"));
         } else if (taskNotifyDTO.getResourceType() == ResourceTypeEnum.FILE.getType()) {
-            variablesMap.put("task.type", i18nService.getI18n("task.type.name.fast_push_file", locale));
+            variablesMap.put("task.type", i18nService.getI18n(locale, "task.type.name.fast_push_file"));
         } else if (taskNotifyDTO.getResourceType() == ResourceTypeEnum.JOB.getType()) {
-            variablesMap.put("task.type", i18nService.getI18n("task.type.name.job", locale));
+            variablesMap.put("task.type", i18nService.getI18n(locale, "task.type.name.job"));
         } else {
             variablesMap.put("task.type", "Unknown");
             log.error("Not supported resourceType:{}", taskNotifyDTO.getResourceType());
@@ -324,7 +324,7 @@ public class NotifyServiceImpl implements NotifyService {
             variablesMap.put("confirm.message", String.valueOf(taskNotifyDTO.getConfirmMessage()));
             variablesMap.put("task.step.confirm_info", String.valueOf(taskNotifyDTO.getConfirmMessage()));
             Set<String> receiverSet = new HashSet<>(taskNotifyDTO.getNotifyDTO().getReceiverUsers());
-            receiverSet.addAll(userResourceClient.getUsersByRoles(
+            receiverSet.addAll(userResource.getUsersByRoles(
                 appId,
                 taskNotifyDTO.getOperator(),
                 taskNotifyDTO.getResourceType(),
@@ -353,7 +353,7 @@ public class NotifyServiceImpl implements NotifyService {
             serviceTemplateNotificationDTO.setTemplateCode(NotifyConsts.NOTIFY_TEMPLATE_CODE_CONFIRMATION);
             Map<String, String> variablesMap = getTemplateVariablesMap(taskNotifyDTO, ExecuteStatusEnum.READY);
             serviceTemplateNotificationDTO.setVariablesMap(variablesMap);
-            notificationResourceClient.sendTemplateNotification(serviceTemplateNotificationDTO);
+            notificationResource.sendTemplateNotification(serviceTemplateNotificationDTO);
         }
     }
 
@@ -395,7 +395,7 @@ public class NotifyServiceImpl implements NotifyService {
         notifyDTO.setChannels(stepInstanceDetail.getNotifyChannels());
         notifyDTO.setTriggerUser(stepInstance.getOperator());
         taskNotifyDTO.setNotifyDTO(notifyDTO);
-        taskNotifyDTO.setResourceId(String.valueOf(taskInstance.getTaskId()));
+        taskNotifyDTO.setResourceId(String.valueOf(taskInstance.getPlanId()));
         taskNotifyDTO.setResourceType(ResourceTypeEnum.JOB.getType());
         taskNotifyDTO.setOperator(stepInstance.getOperator());
         taskExecuteMQEventDispatcher.dispatchNotifyMsg(taskNotifyDTO);
@@ -404,7 +404,7 @@ public class NotifyServiceImpl implements NotifyService {
 
     private void setResourceInfo(TaskInstanceDTO taskInstance, StepInstanceBaseDTO stepInstance,
                                  TaskNotifyDTO taskNotifyDTO) {
-        Long taskPlanId = taskInstance.getTaskId();
+        Long taskPlanId = taskInstance.getPlanId();
         taskNotifyDTO.setResourceId(String.valueOf(taskPlanId));
         if (taskPlanId == -1L) {
             if (stepInstance.getExecuteType().equals(StepExecuteTypeEnum.EXECUTE_SCRIPT.getValue())) {
@@ -427,7 +427,7 @@ public class NotifyServiceImpl implements NotifyService {
         taskNotifyDTO.setOperator(operator);
         taskNotifyDTO.setTaskInstanceId(taskInstance.getId());
         taskNotifyDTO.setStartupMode(taskInstance.getStartupMode());
-        taskNotifyDTO.setTaskId(taskInstance.getTaskId());
+        taskNotifyDTO.setTaskId(taskInstance.getPlanId());
         taskNotifyDTO.setTaskInstanceName(taskInstance.getName());
         return taskNotifyDTO;
     }

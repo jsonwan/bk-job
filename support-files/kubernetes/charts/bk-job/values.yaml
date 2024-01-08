@@ -18,6 +18,9 @@ global:
   storageClass: ""
   # 蓝鲸根域名。指蓝鲸产品公共 cookies 写入的目录，同时也是各个系统的公共域名部分
   bkDomain: "example.com"
+deploy:
+  ## 部署方式。支持标准(standard) 和 轻量化部署(lite)方式
+  mode: standard
 
 ## @section Common parameters
 
@@ -412,6 +415,8 @@ bkPaasUrl: "http://paas.example.com"
 bkLoginUrl: "http://paas.example.com/login/"
 ## 蓝鲸 cmdb url
 bkCmdbUrl: "http://cmdb.example.com"
+# 蓝鲸 IAM url
+bkIamUrl: "http://bkiam.example.com"
 # 蓝鲸 IAM 后台 url
 bkIamApiUrl: "http://bkiam-api.example.com"
 # 蓝鲸制品库 url
@@ -420,6 +425,8 @@ bkRepoUrl: "http://bkrepo.example.com"
 bkNodemanUrl: "http://nodeman.example.com"
 # 蓝鲸 GSE API Gateway url
 bkGseApiGatewayUrl: "http://bkapi.example.com"
+# 蓝鲸消息通知中心 API Gateway url
+bkNoticeApiGatewayUrl: "http://bkapi.example.com/api/bk-notice"
 # 文档中心 url
 bkDocsCenterUrl: "https://bk.tencent.com/docs"
 # 问题反馈 url
@@ -471,8 +478,10 @@ gse:
     rootPath: "/tmp/bkjob"
   query:
     threads:
-      # 向GSE查询Agent状态的并发数
+      # 向GSE查询Agent状态的核心并发数
       num: 5
+      # 向GSE查询Agent状态的最大并发数
+      maxNum: 20
     # 单次向GSE查询状态的Agent数量
     batchSize: 5000
 
@@ -509,6 +518,13 @@ cmdb:
 ## 权限中心配置
 iam:
   # 作业平台注册到IAM的系统ID
+  systemId: bk_job
+
+## 操作审计配置
+audit:
+  # 是否开启操作审计
+  enabled: true
+  # 作业平台系统ID
   systemId: bk_job
 
 ## 蓝鲸制品库配置
@@ -555,6 +571,11 @@ login:
     # 完成页面登录后前端通过Cookie提交的凭据的Key，也是后台向apiUrl获取用户信息提交的凭据的Key
     tokenName: "bk_token"
 
+# 消息通知中心配置
+bkNotice:
+  # 是否对接消息通知中心
+  enabled: true
+
 ## Job Common Config
 job:
   # 作业平台运行所有环境(prod,dev)与模式(kubernetes)，默认生产环境(prod)、K8s容器模式(kubernetes)
@@ -573,6 +594,8 @@ job:
         # 获取actuator监控数据的密码，部署时生成填入
         password: actuator_password
   encrypt:
+    # 可选值：CLASSIC（经典国际算法RSA、AES等），SHANGMI（国家商用密码算法SM2、SM4等）
+    type: "CLASSIC"
     # 用于加密作业平台中存储的数据库密码的密码
     password: "job#2021"
   features:
@@ -619,28 +642,33 @@ job:
       # ingress开启HTTPS时使用的证书私钥base64编码
       keyBase64: ""
 
-## 持久化存储配置
+## 依赖宿主机GSE Agent的文件分发相关配置
+fileDistribute:
+  # 分发文件所在根目录：宿主机路径（以HostPath方式挂载到容器内）
+  hostPath: /data/bkjob
+
+## 持久化存储配置，用于存储本地文件上传、执行日志导出、作业导入导出操作产生的临时文件等
 persistence:
-  ## 是否开启数据持久化，false则使用emptyDir类型volume, pod结束后数据将被清空，无法持久化
-  enabled: true
   accessMode: ReadWriteMany
   size: 200Gi
-  # 存储模式：默认将日志存储于pod所在节点HostPath下，若使用其他共享存储可配置为对应的storageClass
+  # 存储模式：默认将日志存储于pod所在节点HostPath下，若使用其他共享存储可配置为对应的storageClass，支持NFS
   storageClass: job-local
   localStorage:
-    # 是否使用hostpath作为本地存储，用于存储日志、导入导出操作产生的临时文件等
+    # 是否使用HostPath作为本地存储
     enabled: true
-    # 节点本地存储路径
-    path: /data/bkjob
+    # 临时文件根路径（使用HostPath作为本地存储时同时也是宿主机根路径）
+    path: /data/job_temp_file
 
-  ## 如果不定义或设置为null, 将使用默认的storageClass(minikube上是hostPath, AWS上的gp2, GKE上是standard, TKE上是cbs)
-  ## 如果设置为"-", 则禁用动态卷供应
-  ## 如果设置为其它值，则storageClassName: <storageClass>
-  # storageClass: "-"
-
-  ## 如果开启持久化，并且没有任何上述配置，将使用动态卷供应方式提供存储，使用storageClass定义的存储类。
-  ## 在删除该声明后，这个卷也会被销毁(用于单节点环境，生产环境不推荐)。
-  # ref: https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
+# 日志留存配置
+log:
+  # 服务后台日志保留的小时数，默认48小时（2天）
+  keepHours: 48
+  # 根据磁盘占用量自动清理后台日志相关配置
+  clearByVolumeUsage:
+    # 是否开启自动清理任务，默认开启
+    enabled: true
+    # 服务后台日志可使用的最大磁盘空间（超出后将清理最旧的日志文件），单位支持B、KB、MB、GB、TB、PB，默认40GB
+    maxVolume: 40GB
 
 ## 蓝鲸日志采集配置
 bkLogConfig:
@@ -879,7 +907,17 @@ executeConfig:
     port: 80
   # 运行时JVM参数
   jvmOptions: "-Xms512m -Xmx512m -XX:NewRatio=1 -XX:SurvivorRatio=8"
-
+  # Feign相关配置块
+  feign:
+    # 客户端配置
+    client:
+      config:
+        # 默认Client实例配置
+        default:
+          # 连接超时，单位：毫秒
+          connectTimeout: 5000
+          # 读取超时，单位：毫秒
+          readTimeout: 20000
 
 ## job-crontab定时任务配置
 crontabConfig:
@@ -925,6 +963,12 @@ crontabConfig:
     maxReplicas: 5
     targetCPU: 50
     targetMemory: 50
+  service:
+    port: 80
+    type: ClusterIP
+  containerPort: 19805
+  # 运行时JVM参数
+  jvmOptions: "-Xms256m -Xmx256m -XX:NewRatio=1 -XX:SurvivorRatio=8"
   # 连续启动失败通知策略：默认 从第一次失败开始，连续失败每5次通知第一次 begin = 1；frequency = 5；totalTimes = -1
   notificationPolicy:
     failed:
@@ -935,12 +979,42 @@ crontabConfig:
         frequency: 5
         # 通知次数：默认 -1 - 不限制通知次数， 0 - 不通知， 1 - 只通知1次，
         total: -1
-  containerPort: 19805
-  service:
-    port: 80
-    type: ClusterIP
-  # 运行时JVM参数
-  jvmOptions: "-Xms256m -Xmx256m -XX:NewRatio=1 -XX:SurvivorRatio=8"
+  # 定时任务服务独立数据库配置，若不配置该项则使用与其他服务共用的公共数据库
+  database:
+    host: ""
+    port: 3306
+    connection:
+      properties: ?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull
+    username: "job"
+    password: "job"
+    maxPoolSize: 100
+  # Quartz相关配置
+  quartz:
+    # 调度器配置
+    scheduler:
+      # 单次获取触发任务量的最大值
+      batchTriggerAcquisitionMaxCount: 50
+    # 线程池配置
+    threadPool:
+      # 用于执行触发任务的线程池工作线程数量
+      threadCount: 50
+  # Feign相关配置块
+  feign:
+    # Http类型的客户端配置
+    httpclient:
+      # 最大连接数
+      maxConnections: 300
+      # 单个路由地址的最大连接数
+      maxConnectionsPerRoute: 300
+    # 客户端配置
+    client:
+      config:
+        # 默认Client实例配置
+        default:
+          # 连接超时，单位：毫秒
+          connectTimeout: 5000
+          # 读取超时，单位：毫秒
+          readTimeout: 20000
 
 ## job-logsvr日志服务配置
 logsvrConfig:
@@ -1004,7 +1078,7 @@ backupConfig:
     repo: backup
   ## 数据归档配置
   archive:
-    # 归档使用的MariaDB实例，若开启归档，必须配置该项内容
+    # 归档使用的MariaDB实例，若开启归档且开启 DB 数据备份，必须配置该项内容
     mariadb:
       host: ""
       port: ""
@@ -1014,20 +1088,18 @@ backupConfig:
         properties: ?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull
     # job-execute模块的归档配置
     execute:
-      # 是否开启数据归档，默认不开启
+      # 是否启用 DB 归档
       enabled: false
+      # 归档模式。deleteOnly: 仅删除；backupThenDelete: 先备份数据再删除。默认 deleteOnly
+      mode: deleteOnly
       # 归档任务运行的cron表达式，默认每天凌晨04:00
       cron: 0 0 4 * * *
-      data:
-        # 热库中的数据保留时间（天）
-        keep_days: 30
-        # 归档数据读取时每次读取的数据量（单个表），服务内存受限时可适当降低该值
-        read_id_step_size: 1000
-        # 归档数据写入归档库时每次写入的数据量（单个表），服务内存受限时可适当降低该值
-        batch_insert_row_size: 1000
-      delete:
-        # 是否删除热库中的过期老数据，默认不删除
-        enabled: false
+      # 热库中的数据保留时间（天）
+      keep_days: 30
+      # 归档数据读取时每次读取的数据量（单个表），服务内存受限时可适当降低该值
+      read_id_step_size: 1000
+      # 归档数据写入归档库时每次写入的数据量（单个表），服务内存受限时可适当降低该值
+      batch_insert_row_size: 1000
   image:
     registry: hub.bktencent.com
     repository: blueking/job-backup
@@ -1125,6 +1197,17 @@ analysisConfig:
     type: ClusterIP
   # 运行时JVM参数
   jvmOptions: "-Xms256m -Xmx256m -XX:NewRatio=1 -XX:SurvivorRatio=8"
+  # Feign相关配置块
+  feign:
+    # 客户端配置
+    client:
+      config:
+        # 默认Client实例配置
+        default:
+          # 连接超时，单位：毫秒
+          connectTimeout: 5000
+          # 读取超时，单位：毫秒
+          readTimeout: 300000
 
 ## job-file-gateway文件网关服务配置
 fileGatewayConfig:
@@ -1182,8 +1265,16 @@ fileGatewayConfig:
     white: "k8s"
     # 不能调度的worker标签黑名单，逗号分隔
     black: ""
+  # 任务重调度相关配置
+  reDispatch:
+    # 超时任务
+    timeoutTask:
+      # 是否开启重调度
+      enabled: true
+      # 超时时间（秒）
+      timeoutSeconds: 10
 
-## job-file-worker文件源接入点配置
+ ## job-file-worker文件源接入点配置
 fileWorkerConfig:
   # 模块是否启用，默认启用
   enabled: true
@@ -1422,6 +1513,7 @@ waitForDependServices:
 
 ## job-config-watcher 配置
 k8sConfigWatcherConfig:
+  enabled: true
   image:
     registry: docker.io
     repository: springcloud/spring-cloud-kubernetes-configuration-watcher
@@ -1452,3 +1544,66 @@ k8sConfigWatcherConfig:
     requests:
       cpu: 100m
       memory: 256Mi 
+
+## job-assemble 配置
+assembleConfig:
+  image:
+    registry: hub.bktencent.com
+    repository: blueking/job-assemble
+    tag: "{{APP_VERSION}}"
+    pullPolicy: IfNotPresent
+    pullSecrets: []
+  replicaCount: 1
+  hostAliases: []
+  resources:
+    limits:
+      cpu: 900m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  containerSecurityContext:
+    enabled: false
+    runAsUser: 1001
+    runAsNonRoot: true
+  podSecurityContext:
+    enabled: false
+    fsGroup: 1001
+  podAffinityPreset: ""
+  podAntiAffinityPreset: soft
+  nodeAffinityPreset:
+    type: ""
+    key: ""
+    values: []
+  affinity: {}
+  nodeSelector: {}
+  tolerations: []
+  podLabels: {}
+  podAnnotations: {}
+  priorityClassName: ""
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPU: 50
+    targetMemory: 50
+  containerPort: 19850
+  service:
+    type: ClusterIP
+    port: 80
+  # 运行时JVM参数
+  jvmOptions: "-Xms512m -Xmx1024m -XX:NewRatio=1 -XX:SurvivorRatio=8"
+  # Feign相关配置块
+  feign:
+    # 客户端配置
+    client:
+      config:
+        # 默认Client实例配置
+        default:
+          # 连接超时，单位：毫秒
+          connectTimeout: 5000
+          # 读取超时，单位：毫秒
+          readTimeout: 300000
+
+# pod删除时等待优雅关闭的最大时间，单位为秒（超出后强制删除）
+podTerminationGracePeriodSeconds: 40

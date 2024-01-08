@@ -1,4 +1,4 @@
-{{- if .Values.executeConfig.enabled }}
+{{- if and .Values.executeConfig.enabled (eq .Values.deploy.mode "standard") }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -188,19 +188,14 @@ data:
     server:
       port: {{ .Values.executeConfig.containerPort }}
     feign:
-      client:
-        config:
-          default:
-            connectTimeout: 5000
-            readTimeout: 20000
-          sync:
-            connectTimeout: 5000
-            readTimeout: 30000
-          log:
-            connectTimeout: 5000
-            readTimeout: 30000
-    log-export:
-      storage-backend: {{ .Values.executeConfig.logExport.storageBackend }}
-      artifactory:
-        repo: {{ .Values.executeConfig.logExport.artifactory.repo }}
+      {{- toYaml .Values.executeConfig.feign | nindent 6 }}
+    job:
+      execute:
+        log-export:
+          storage-backend: {{ .Values.executeConfig.logExport.storageBackend }}
+          artifactory:
+            repo: {{ .Values.executeConfig.logExport.artifactory.repo }}
+        file:
+          distribute:
+            root-path: {{ .Values.fileDistribute.hostPath }}/local
 {{- end }}

@@ -24,6 +24,7 @@
 
 package com.tencent.bk.job.manage.api.inner.impl;
 
+import com.tencent.bk.job.common.constant.AccountCategoryEnum;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.exception.InvalidParamException;
 import com.tencent.bk.job.common.exception.NotFoundException;
@@ -37,7 +38,6 @@ import com.tencent.bk.job.common.util.ArrayUtil;
 import com.tencent.bk.job.common.util.date.DateUtils;
 import com.tencent.bk.job.manage.api.inner.ServiceAccountResource;
 import com.tencent.bk.job.manage.auth.AccountAuthService;
-import com.tencent.bk.job.manage.common.consts.account.AccountCategoryEnum;
 import com.tencent.bk.job.manage.model.dto.AccountDTO;
 import com.tencent.bk.job.manage.model.inner.ServiceAccountDTO;
 import com.tencent.bk.job.manage.model.web.request.AccountCreateUpdateReq;
@@ -135,7 +135,7 @@ public class ServiceAccountResourceImpl implements ServiceAccountResource {
     }
 
     @Override
-    @Transactional(rollbackFor = {Throwable.class})
+    @Transactional(value = "jobManageTransactionManager", rollbackFor = {Throwable.class})
     public InternalResponse<ServiceAccountDTO> saveOrGetAccount(String username, Long createTime, Long lastModifyTime,
                                                                 String lastModifyUser, Long appId,
                                                                 AccountCreateUpdateReq accountCreateUpdateReq) {
@@ -165,9 +165,9 @@ public class ServiceAccountResourceImpl implements ServiceAccountResource {
             newAccount.setLastModifyUser(username);
         }
 
-        long accountId = accountService.saveAccount(newAccount);
-        newAccount.setId(accountId);
-        return InternalResponse.buildSuccessResp(newAccount.toServiceAccountDTO());
+        AccountDTO savedAccount = accountService.createAccount(newAccount);
+        newAccount.setId(savedAccount.getId());
+        return InternalResponse.buildSuccessResp(savedAccount.toServiceAccountDTO());
     }
 
     @Override
@@ -183,15 +183,15 @@ public class ServiceAccountResourceImpl implements ServiceAccountResource {
 
         AccountDTO newAccount = accountService.buildCreateAccountDTO(username, appResourceScope.getAppId(),
             accountCreateUpdateReq);
-        long accountId = accountService.saveAccount(newAccount);
-        accountAuthService.registerAccount(username, accountId, newAccount.getAlias());
-        return Response.buildSuccessResp(accountId);
+        AccountDTO savedAccount = accountService.createAccount(newAccount);
+        accountAuthService.registerAccount(username, savedAccount.getId(), newAccount.getAlias());
+        return Response.buildSuccessResp(savedAccount.getId());
     }
 
     @Override
     public Response<List<ServiceAccountDTO>> listAccounts(Long appId, Integer category) {
         List<AccountDTO> accountDTOS =
-            accountService.listAllAppAccount(appId, AccountCategoryEnum.valOf(category));
+            accountService.listAppAccount(appId, AccountCategoryEnum.valOf(category));
         List<ServiceAccountDTO> accounts = new ArrayList<>();
         if (accountDTOS != null && !accountDTOS.isEmpty()) {
             for (AccountDTO accountDTO : accountDTOS) {

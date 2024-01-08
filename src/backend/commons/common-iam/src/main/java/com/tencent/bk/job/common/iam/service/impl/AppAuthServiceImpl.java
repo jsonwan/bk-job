@@ -25,8 +25,10 @@
 package com.tencent.bk.job.common.iam.service.impl;
 
 import com.tencent.bk.job.common.constant.ResourceScopeTypeEnum;
+import com.tencent.bk.job.common.esb.config.AppProperties;
+import com.tencent.bk.job.common.esb.config.EsbProperties;
 import com.tencent.bk.job.common.iam.client.EsbIamClient;
-import com.tencent.bk.job.common.iam.config.EsbConfiguration;
+import com.tencent.bk.job.common.iam.config.JobIamProperties;
 import com.tencent.bk.job.common.iam.constant.ActionId;
 import com.tencent.bk.job.common.iam.constant.ResourceTypeEnum;
 import com.tencent.bk.job.common.iam.constant.ResourceTypeId;
@@ -48,12 +50,11 @@ import com.tencent.bk.sdk.iam.dto.expression.ExpressionDTO;
 import com.tencent.bk.sdk.iam.dto.resource.RelatedResourceTypeDTO;
 import com.tencent.bk.sdk.iam.helper.AuthHelper;
 import com.tencent.bk.sdk.iam.service.PolicyService;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.helpers.FormattingTuple;
 import org.slf4j.helpers.MessageFormatter;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,24 +63,29 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Service
 public class AppAuthServiceImpl extends BasicAuthService implements AppAuthService {
     private final AuthHelper authHelper;
     private final BusinessAuthHelper businessAuthHelper;
     private final PolicyService policyService;
+    private final JobIamProperties jobIamProperties;
     private final EsbIamClient iamClient;
     private ResourceNameQueryService resourceNameQueryService;
 
-    public AppAuthServiceImpl(@Autowired AuthHelper authHelper,
-                              @Autowired BusinessAuthHelper businessAuthHelper,
-                              @Autowired IamConfiguration iamConfiguration,
-                              @Autowired PolicyService policyService,
-                              @Autowired EsbConfiguration esbConfiguration) {
+    public AppAuthServiceImpl(AuthHelper authHelper,
+                              BusinessAuthHelper businessAuthHelper,
+                              IamConfiguration iamConfiguration,
+                              PolicyService policyService,
+                              JobIamProperties jobIamProperties,
+                              EsbProperties esbProperties,
+                              MeterRegistry meterRegistry) {
         this.authHelper = authHelper;
         this.businessAuthHelper = businessAuthHelper;
         this.policyService = policyService;
-        this.iamClient = new EsbIamClient(esbConfiguration.getEsbUrl(), iamConfiguration.getAppCode(),
-            iamConfiguration.getAppSecret(), esbConfiguration.isUseEsbTestEnv());
+        this.jobIamProperties = jobIamProperties;
+        this.iamClient = new EsbIamClient(
+            meterRegistry,
+            new AppProperties(iamConfiguration.getAppCode(), iamConfiguration.getAppSecret()),
+            esbProperties);
     }
 
     @Override
@@ -271,19 +277,18 @@ public class AppAuthServiceImpl extends BasicAuthService implements AppAuthServi
 
     @Override
     public String getBusinessApplyUrl(AppResourceScope appResourceScope) {
+        if (appResourceScope == null) {
+            return jobIamProperties.getWebUrl();
+        }
         ActionDTO action = new ActionDTO();
         action.setId(ActionId.ACCESS_BUSINESS);
         List<RelatedResourceTypeDTO> relatedResourceTypes = new ArrayList<>();
         RelatedResourceTypeDTO businessResourceTypeDTO = new RelatedResourceTypeDTO();
         businessResourceTypeDTO.setType(ResourceTypeEnum.BUSINESS.getId());
         businessResourceTypeDTO.setSystemId(SystemId.CMDB);
-        if (appResourceScope != null) {
-            List<InstanceDTO> instanceDTOList = new ArrayList<>();
-            instanceDTOList.add(buildInstance(appResourceScope));
-            businessResourceTypeDTO.setInstance(Collections.singletonList(instanceDTOList));
-        } else {
-            businessResourceTypeDTO.setInstance(Collections.emptyList());
-        }
+        List<InstanceDTO> instanceDTOList = new ArrayList<>();
+        instanceDTOList.add(buildInstance(appResourceScope));
+        businessResourceTypeDTO.setInstance(Collections.singletonList(instanceDTOList));
         relatedResourceTypes.add(businessResourceTypeDTO);
         action.setRelatedResourceTypes(relatedResourceTypes);
         return iamClient.getApplyUrl(Collections.singletonList(action));

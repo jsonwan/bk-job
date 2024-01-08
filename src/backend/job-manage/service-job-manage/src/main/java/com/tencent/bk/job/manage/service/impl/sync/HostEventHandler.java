@@ -28,19 +28,25 @@ import com.tencent.bk.job.common.cc.model.req.ResourceWatchReq;
 import com.tencent.bk.job.common.cc.model.result.HostEventDetail;
 import com.tencent.bk.job.common.cc.model.result.ResourceEvent;
 import com.tencent.bk.job.common.gse.service.AgentStateClient;
+import com.tencent.bk.job.common.gse.service.model.HostAgentStateQuery;
 import com.tencent.bk.job.common.gse.v2.model.resp.AgentState;
 import com.tencent.bk.job.common.model.dto.ApplicationHostDTO;
 import com.tencent.bk.job.common.util.json.JsonUtils;
+import com.tencent.bk.job.manage.config.GseConfig;
 import com.tencent.bk.job.manage.metrics.CmdbEventSampler;
 import com.tencent.bk.job.manage.metrics.MetricsConstants;
 import com.tencent.bk.job.manage.service.host.HostService;
 import io.micrometer.core.instrument.Tags;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.helpers.FormattingTuple;
 import org.slf4j.helpers.MessageFormatter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cloud.sleuth.Tracer;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 
 @Slf4j
@@ -53,7 +59,8 @@ public class HostEventHandler extends EventsHandler<HostEventDetail> {
                      CmdbEventSampler cmdbEventSampler,
                      BlockingQueue<ResourceEvent<HostEventDetail>> queue,
                      HostService hostService,
-                     AgentStateClient agentStateClient) {
+                     @Qualifier(GseConfig.MANAGE_BEAN_AGENT_STATE_CLIENT)
+                         AgentStateClient agentStateClient) {
         super(queue, tracer, cmdbEventSampler);
         this.hostService = hostService;
         this.agentStateClient = agentStateClient;
@@ -105,10 +112,36 @@ public class HostEventHandler extends EventsHandler<HostEventDetail> {
                 // 尝试设置Agent状态
                 tryToUpdateAgentStatus(hostInfoDTO);
                 // 更新DB与缓存中的主机数据
-                hostService.createOrUpdateHostBeforeLastTime(hostInfoDTO);
+                Pair<Boolean, Integer> pair = hostService.createOrUpdateHostBeforeLastTime(hostInfoDTO);
+                int affectedNum = pair.getRight();
+                if (affectedNum == 0) {
+                    log.info(
+                        "no host affected after handle according to lastTime, " +
+                            "try to query latest host from cmdb and update"
+                    );
+                    // 从CMDB查询最新主机信息
+                    List<ApplicationHostDTO> hostList = hostService.listHostsFromCmdbByHostIds(
+                        Collections.singletonList(hostInfoDTO.getHostId())
+                    );
+                    if (CollectionUtils.isNotEmpty(hostList)) {
+                        hostInfoDTO = hostList.get(0);
+                        affectedNum = hostService.updateHostAttrsByHostId(hostInfoDTO);
+                        log.info("update host attrs:{}, affectedNum={}", hostInfoDTO, affectedNum);
+                    } else {
+                        // 机器在CMDB中已不存在，忽略
+                        log.info("host not exist in cmdb:{}, ignore", hostInfoDTO);
+                    }
+                } else {
+                    log.info(
+                        "{} host affected, created:{}",
+                        affectedNum,
+                        pair.getLeft()
+                    );
+                }
                 break;
             case ResourceWatchReq.EVENT_TYPE_DELETE:
-                hostService.deleteHostBeforeLastTime(hostInfoDTO);
+                int deletedNum = hostService.deleteHostBeforeOrEqualLastTime(hostInfoDTO);
+                log.info("delete host:{}, deletedNum={}", hostInfoDTO, deletedNum);
                 break;
             default:
                 break;
@@ -117,9 +150,7 @@ public class HostEventHandler extends EventsHandler<HostEventDetail> {
 
     private void tryToUpdateAgentStatus(ApplicationHostDTO hostInfoDTO) {
         try {
-            String agentId = StringUtils.isNotBlank(hostInfoDTO.getAgentId()) ?
-                hostInfoDTO.getAgentId() : hostInfoDTO.getCloudIp();
-            AgentState agentState = agentStateClient.getAgentState(agentId);
+            AgentState agentState = agentStateClient.getAgentState(HostAgentStateQuery.from(hostInfoDTO));
             if (agentState != null) {
                 hostInfoDTO.setGseAgentStatus(agentState.getStatusCode());
             }

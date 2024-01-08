@@ -24,17 +24,15 @@
 
 package com.tencent.bk.job.manage.api.esb.impl;
 
+import com.tencent.bk.job.common.constant.AccountCategoryEnum;
 import com.tencent.bk.job.common.esb.metrics.EsbApiTimed;
 import com.tencent.bk.job.common.esb.model.EsbResp;
 import com.tencent.bk.job.common.esb.util.EsbDTOAppScopeMappingHelper;
 import com.tencent.bk.job.common.exception.InvalidParamException;
-import com.tencent.bk.job.common.i18n.service.MessageI18nService;
 import com.tencent.bk.job.common.metrics.CommonMetricNames;
 import com.tencent.bk.job.common.model.ValidateResult;
-import com.tencent.bk.job.common.service.AppScopeMappingService;
 import com.tencent.bk.job.common.util.date.DateUtils;
 import com.tencent.bk.job.manage.api.esb.EsbGetDBAccountListResource;
-import com.tencent.bk.job.manage.common.consts.account.AccountCategoryEnum;
 import com.tencent.bk.job.manage.model.dto.AccountDTO;
 import com.tencent.bk.job.manage.model.esb.EsbDBAccountDTO;
 import com.tencent.bk.job.manage.model.esb.request.EsbGetDBAccountListRequest;
@@ -54,36 +52,31 @@ import java.util.List;
 @Slf4j
 public class EsbGetDBAccountListResourceImpl implements EsbGetDBAccountListResource {
     private final AccountService accountService;
-    private final MessageI18nService i18nService;
-    private final AppScopeMappingService appScopeMappingService;
 
     @Autowired
-    public EsbGetDBAccountListResourceImpl(AccountService accountService,
-                                           MessageI18nService i18nService,
-                                           AppScopeMappingService appScopeMappingService) {
+    public EsbGetDBAccountListResourceImpl(AccountService accountService) {
         this.accountService = accountService;
-        this.i18nService = i18nService;
-        this.appScopeMappingService = appScopeMappingService;
     }
 
     @Override
     @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v2_get_own_db_account_list"})
-    public EsbResp<List<EsbDBAccountDTO>> getUserOwnDbAccountList(EsbGetDBAccountListRequest request) {
-        request.fillAppResourceScope(appScopeMappingService);
+    public EsbResp<List<EsbDBAccountDTO>> getUserOwnDbAccountList(String username,
+                                                                  String appCode,
+                                                                  EsbGetDBAccountListRequest request) {
         ValidateResult checkResult = checkRequest(request);
         if (!checkResult.isPass()) {
             log.warn("Get db account list, request is illegal!");
             throw new InvalidParamException(checkResult);
         }
         long appId = request.getAppId();
-        List<AccountDTO> dbAccounts = accountService.listAllAppAccount(appId, AccountCategoryEnum.DB);
+        List<AccountDTO> dbAccounts = accountService.listAppAccount(appId, AccountCategoryEnum.DB);
         List<AccountDTO> grantedDbAccounts = new ArrayList<>();
         dbAccounts.forEach(dbAccount -> {
             if (StringUtils.isBlank(dbAccount.getGrantees())) {
                 grantedDbAccounts.add(dbAccount);
             } else {
                 List<String> grantees = Arrays.asList(dbAccount.getGrantees().split(","));
-                if (grantees.contains(request.getUserName())) {
+                if (grantees.contains(username)) {
                     grantedDbAccounts.add(dbAccount);
                 }
             }

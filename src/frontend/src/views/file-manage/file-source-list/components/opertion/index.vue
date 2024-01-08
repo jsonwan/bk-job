@@ -410,7 +410,7 @@
        * @desc 获取身份凭证列表数据
        */
       fetchTicketList() {
-        return TicketManageService.fetchList()
+        return TicketManageService.getBasicInfoList()
           .then((res) => {
             this.fileFourceTicketList = Object.freeze(res.data);
           });
@@ -508,13 +508,13 @@
             });
 
             if (params.id < 0) {
-              return FileSourceManageService.addSource(params)
+              return FileSourceManageService.create(params)
                 .then(() => {
                   this.messageSuccess(I18n.t('file.创建成功'));
                   this.$emit('on-change');
                 });
             }
-            return FileSourceManageService.updateSource(params)
+            return FileSourceManageService.update(params)
               .then(() => {
                 this.messageSuccess(I18n.t('file.更新成功'));
                 this.$emit('on-change');

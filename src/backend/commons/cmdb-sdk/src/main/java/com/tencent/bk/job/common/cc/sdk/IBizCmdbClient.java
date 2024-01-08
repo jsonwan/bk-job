@@ -141,6 +141,14 @@ public interface IBizCmdbClient {
     List<CcCloudAreaInfoDTO> getCloudAreaList();
 
     /**
+     * 根据云区域 ID 获取云区域
+     *
+     * @param bkCloudId 云区域 ID
+     * @return 云区域
+     */
+    CcCloudAreaInfoDTO getCloudAreaByBkCloudId(Long bkCloudId);
+
+    /**
      * 根据IP查询主机
      *
      * @param input 查询条件
@@ -174,7 +182,7 @@ public interface IBizCmdbClient {
     List<ApplicationHostDTO> listHostsByCloudIpv6s(List<String> cloudIpv6s);
 
     /**
-     * 根据IP批量获取主机
+     * 根据HostId批量获取主机
      *
      * @param hostIds 主机ID列表
      * @return 主机列表

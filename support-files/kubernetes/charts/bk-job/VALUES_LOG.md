@@ -1,4 +1,152 @@
 # chart values 更新日志
+
+## 0.5.7
+1. 增加日志留存配置
+
+```yaml
+# 日志留存配置
+log:
+  # 服务后台日志保留的小时数，默认48小时（2天）
+  keepHours: 48
+  # 根据磁盘占用量自动清理后台日志相关配置
+  clearByVolumeUsage:
+    # 是否开启自动清理任务，默认开启
+    enabled: true
+    # 服务后台日志可使用的最大磁盘空间（超出后将清理最旧的日志文件），单位支持B、KB、MB、GB、TB、PB，默认40GB
+    maxVolume: 40GB
+```
+
+## 0.5.6
+1. 增加消息通知中心配置
+
+```yaml
+# 蓝鲸消息通知中心 API Gateway url
+bkNoticeApiGatewayUrl: "http://bkapi.example.com/api/bk-notice"
+# 消息通知中心配置
+bkNotice:
+  # 是否对接消息通知中心
+  enabled: true
+```
+
+## 0.5.5
+1. 增加权限中心web地址配置
+
+```yaml
+# 蓝鲸 IAM url
+bkIamUrl: "http://bkiam.example.com"
+```
+
+## 0.5.4
+1. 增加定时任务服务独立数据库配置（若不配置该项则使用与其他服务共用的公共数据库），默认无需配置
+
+```yaml
+## job-crontab定时任务配置
+crontabConfig:
+  # 定时任务服务独立数据库配置，若不配置该项则使用与其他服务共用的公共数据库
+  database:
+    host: ""
+    port: 3306
+    connection:
+      properties: ?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull
+    username: "job"
+    password: "job"
+```
+
+## 0.5.3
+1. 增加操作审计相关配置
+
+```yaml
+## 操作审计配置
+audit:
+  # 是否开启操作审计
+  enabled: true
+  # 作业平台系统ID
+  systemId: bk_job
+```
+2. 增加pod删除时等待优雅关闭的最大时间配置
+
+```yaml
+# pod删除时等待优雅关闭的最大时间，单位为秒（超出后强制删除）
+podTerminationGracePeriodSeconds: 40
+```
+
+## 0.5.2
+1.增加依赖宿主机GSE Agent的分发相关配置
+
+```yaml
+## 依赖宿主机GSE Agent的文件分发相关配置
+fileDistribute:
+  # 分发文件所在根目录：宿主机路径（以HostPath方式挂载到容器内）
+  hostPath: /data/bkjob
+```
+
+2.去除实际上并未用到的`persistence.enabled`配置
+
+3.临时文件存储根路径`persistence.localStorage.path`默认值修改为`/data/job_temp_file`
+
+4.新增job-file-gateway文件网关任务重调度相关配置
+```yaml
+## job-file-gateway文件网关服务配置
+fileGatewayConfig:
+  # 任务重调度相关配置
+  reDispatch:
+    # 超时任务
+    timeoutTask:
+      # 是否开启重调度
+      enabled: true
+      # 超时时间（秒）
+      timeoutSeconds: 10
+
+```
+
+## 0.5.1
+1.增加轻量化部署配置
+
+```yaml
+deploy:
+  ## 部署方式。支持标准(standard) 和 轻量化部署(lite)方式
+  mode: standard
+```
+2. 修改备份服务中的数据归档相关配置
+
+```yaml
+backupConfig:
+  ## 数据归档配置
+  archive:
+    # 归档使用的MariaDB实例，若开启归档且开启 DB 数据备份，必须配置该项内容
+    mariadb:
+      host: ""
+      port: ""
+      username: "job"
+      password: "job"
+      connection:
+        properties: ?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull
+    # job-execute模块的归档配置
+    execute:
+      # 是否启用 DB 归档
+      enabled: false
+      # 归档模式。deleteOnly: 仅删除； backupThenDelete: 先备份数据再删除。默认 deleteOnly
+      mode: deleteOnly
+      # 归档任务运行的cron表达式，默认每天凌晨04:00
+      cron: 0 0 4 * * *
+      # 热库中的数据保留时间（天）
+      keep_days: 30
+      # 归档数据读取时每次读取的数据量（单个表），服务内存受限时可适当降低该值
+      read_id_step_size: 1000
+      # 归档数据写入归档库时每次写入的数据量（单个表），服务内存受限时可适当降低该值
+      batch_insert_row_size: 1000
+```
+
+## 0.5.0
+1.增加 加密类型 配置
+
+```yaml
+job:
+  encrypt:
+    # 可选值：CLASSIC（经典国际算法RSA、AES等），SHANGMI（国家商用密码算法SM2、SM4等）
+    type: "CLASSIC"
+```
+
 ## 0.4.6
 1.增加备份服务中的数据归档相关配置
 ```yaml

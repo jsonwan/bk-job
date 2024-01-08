@@ -1,4 +1,4 @@
-{{- if .Values.logsvrConfig.enabled }}
+{{- if and .Values.logsvrConfig.enabled (eq .Values.deploy.mode "standard") }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
@@ -34,6 +34,7 @@ spec:
       annotations:
         {{ include "annotations.sha256sum.configmap" ( dict "service" "job-logsvr" "context" . ) | nindent 8 }}
     spec:
+      {{- include "job.podTerminationGracePeriodSeconds" . | nindent 6 }}
       {{- include "job.imagePullSecrets" . | nindent 6 }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
       {{- if .Values.logsvrConfig.affinity }}
@@ -100,8 +101,6 @@ spec:
           resources:
             {{- toYaml .Values.logsvrConfig.resources | nindent 12 }}
           volumeMounts:
-            - name: job-storage
-              mountPath: {{ .Values.persistence.localStorage.path }}
             - name: mongodb
               mountPath: /etc/secrets/mongodb
               readOnly: true
@@ -109,9 +108,6 @@ spec:
               mountPath: /etc/secrets/rabbitmq
               readOnly: true
       volumes:
-        - name: job-storage
-          persistentVolumeClaim:
-            claimName: {{ include "common.names.fullname" . }}-pv-claim
         - name: mongodb
           secret:
             secretName: {{ include "job.mongodb.secretName" . }}

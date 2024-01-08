@@ -1,4 +1,4 @@
-{{- if .Values.executeConfig.enabled }}
+{{- if and .Values.executeConfig.enabled (eq .Values.deploy.mode "standard") }}
 apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
 kind: Deployment
 metadata:
@@ -34,6 +34,7 @@ spec:
       annotations:
         {{ include "annotations.sha256sum.configmap" ( dict "service" "job-execute" "context" . ) | nindent 8 }}
     spec:
+      {{- include "job.podTerminationGracePeriodSeconds" . | nindent 6 }}
       {{- include "job.imagePullSecrets" . | nindent 6 }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
       {{- if .Values.executeConfig.affinity }}
@@ -105,6 +106,8 @@ spec:
           resources:
             {{- toYaml .Values.executeConfig.resources | nindent 12 }}
           volumeMounts:
+            - name: distribute-volume
+              mountPath: {{ .Values.fileDistribute.hostPath }}
             - name: job-storage
               mountPath: {{ .Values.persistence.localStorage.path }}
             - name: mariadb
@@ -124,9 +127,13 @@ spec:
               readOnly: true
       terminationGracePeriodSeconds: 120
       volumes:
+        - name: distribute-volume
+          hostPath:
+            path: {{ .Values.fileDistribute.hostPath }}
+            type: DirectoryOrCreate
         - name: job-storage
           persistentVolumeClaim:
-            claimName: {{ include "common.names.fullname" . }}-pv-claim
+            claimName: {{ include "job.storage.pvc.name" . }}
         - name: mariadb
           secret:
             secretName: {{ include "job.mariadb.secretName" . }}

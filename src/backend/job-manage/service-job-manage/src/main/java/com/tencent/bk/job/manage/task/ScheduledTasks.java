@@ -24,7 +24,6 @@
 
 package com.tencent.bk.job.manage.task;
 
-import com.tencent.bk.job.manage.common.client.PAASClientFactory;
 import com.tencent.bk.job.manage.manager.app.ApplicationCache;
 import com.tencent.bk.job.manage.service.SyncService;
 import lombok.extern.slf4j.Slf4j;
@@ -33,13 +32,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/**
- * @Description 增加调度需要注意到ScheduleConfig中更新线程池配置
- * @Date 2020/1/3
- * @Version 1.0
- */
 @Slf4j
-@Component
+@Component("jobManageScheduledTasks")
 @EnableScheduling
 public class ScheduledTasks {
 
@@ -138,16 +132,6 @@ public class ScheduledTasks {
         log.info("Clean user upload file task finished");
     }
 
-    @Scheduled(cron = "0 0 0 * * ?")
-    public void resetTodayStatistics() {
-        log.info("resetTodayStatistics begin");
-        try {
-            PAASClientFactory.resetTodayStatistics();
-        } catch (Exception e) {
-            log.error("resetTodayStatistics failed!", e);
-        }
-        log.info("resetTodayStatistics finished");
-    }
 
     @Scheduled(cron = "0 10 * * * ?")
     public void clearDeletedHosts() {

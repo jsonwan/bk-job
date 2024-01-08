@@ -34,7 +34,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("jobFileGatewayScheduledTasks")
 @EnableScheduling
 public class ScheduledTasks {
 
@@ -80,9 +80,9 @@ public class ScheduledTasks {
     }
 
     /**
-     * 任务超时重调度：1s/次
+     * 任务超时重调度：10s/次
      */
-    @Scheduled(fixedDelay = 1000L, initialDelay = 3 * 1000L)
+    @Scheduled(fixedDelay = 10000L, initialDelay = 3 * 1000L)
     public void reDispatchTimeoutFileSourceTask() {
         logger.info(Thread.currentThread().getId() + ":reDispatchTimeoutFileSourceTask start");
         try {

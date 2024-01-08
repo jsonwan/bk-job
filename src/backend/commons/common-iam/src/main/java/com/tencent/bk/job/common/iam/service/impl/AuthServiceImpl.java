@@ -25,6 +25,8 @@
 package com.tencent.bk.job.common.iam.service.impl;
 
 import com.tencent.bk.job.common.constant.ErrorCode;
+import com.tencent.bk.job.common.esb.config.AppProperties;
+import com.tencent.bk.job.common.esb.config.EsbProperties;
 import com.tencent.bk.job.common.esb.model.EsbResp;
 import com.tencent.bk.job.common.esb.model.iam.EsbActionDTO;
 import com.tencent.bk.job.common.esb.model.iam.EsbApplyPermissionDTO;
@@ -33,7 +35,6 @@ import com.tencent.bk.job.common.esb.model.iam.EsbRelatedResourceTypeDTO;
 import com.tencent.bk.job.common.exception.InternalException;
 import com.tencent.bk.job.common.i18n.service.MessageI18nService;
 import com.tencent.bk.job.common.iam.client.EsbIamClient;
-import com.tencent.bk.job.common.iam.config.EsbConfiguration;
 import com.tencent.bk.job.common.iam.constant.ActionInfo;
 import com.tencent.bk.job.common.iam.constant.Actions;
 import com.tencent.bk.job.common.iam.constant.ResourceTypeEnum;
@@ -53,11 +54,10 @@ import com.tencent.bk.sdk.iam.dto.action.ActionDTO;
 import com.tencent.bk.sdk.iam.dto.resource.RelatedResourceTypeDTO;
 import com.tencent.bk.sdk.iam.dto.resource.ResourceDTO;
 import com.tencent.bk.sdk.iam.helper.AuthHelper;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -68,20 +68,23 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Service
 public class AuthServiceImpl extends BasicAuthService implements AuthService {
     private final AuthHelper authHelper;
     private final EsbIamClient iamClient;
     private final MessageI18nService i18nService;
     private ResourceNameQueryService resourceNameQueryService;
 
-    public AuthServiceImpl(@Autowired AuthHelper authHelper,
-                           @Autowired IamConfiguration iamConfiguration,
-                           @Autowired EsbConfiguration esbConfiguration, MessageI18nService i18nService) {
+    public AuthServiceImpl(AuthHelper authHelper,
+                           IamConfiguration iamConfiguration,
+                           EsbProperties esbProperties,
+                           MessageI18nService i18nService,
+                           MeterRegistry meterRegistry) {
         this.authHelper = authHelper;
         this.i18nService = i18nService;
-        this.iamClient = new EsbIamClient(esbConfiguration.getEsbUrl(), iamConfiguration.getAppCode(),
-            iamConfiguration.getAppSecret(), esbConfiguration.isUseEsbTestEnv());
+        this.iamClient = new EsbIamClient(
+            meterRegistry,
+            new AppProperties(iamConfiguration.getAppCode(), iamConfiguration.getAppSecret()),
+            esbProperties);
     }
 
     @Override

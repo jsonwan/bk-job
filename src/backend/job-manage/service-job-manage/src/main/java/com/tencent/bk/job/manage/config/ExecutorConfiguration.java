@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
-@Configuration
+@Configuration(value = "jobManageExecutorConfig")
 public class ExecutorConfiguration {
 
     @Bean("syncHostExecutor")
@@ -124,6 +124,19 @@ public class ExecutorConfiguration {
             5,
             5,
             30,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>()
+        );
+    }
+
+    @Bean("initRunnerExecutor")
+    public ThreadPoolExecutor initRunnerExecutor(MeterRegistry meterRegistry) {
+        return new WatchableThreadPoolExecutor(
+            meterRegistry,
+            "initRunnerExecutor",
+            0,
+            5,
+            1,
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>()
         );

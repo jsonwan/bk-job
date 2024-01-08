@@ -26,16 +26,18 @@ package com.tencent.bk.job.common.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.tencent.bk.job.common.annotation.CompatibleImplementation;
 import com.tencent.bk.job.common.annotation.PersistenceObject;
 import com.tencent.bk.job.common.constant.JobConstants;
 import com.tencent.bk.job.common.model.vo.CloudAreaInfoVO;
 import com.tencent.bk.job.common.model.vo.HostInfoVO;
+import com.tencent.bk.job.common.util.ip.IpUtils;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.helpers.MessageFormatter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +46,7 @@ import java.util.stream.Collectors;
 /**
  * 主机
  */
+@Slf4j
 @PersistenceObject
 @Data
 @EqualsAndHashCode
@@ -179,7 +182,6 @@ public class ApplicationHostDTO {
         }
     }
 
-    @CompatibleImplementation(name = "ipv6", explain = "兼容方法，保证发布过程中无损变更，下个版本删除", deprecatedVersion = "3.8.0")
     private Integer getAgentAliveValue() {
         return gseAgentAlive == null ? 0 : (gseAgentAlive ? 1 : 0);
     }
@@ -290,15 +292,42 @@ public class ApplicationHostDTO {
         return JobConstants.GSE_AGENT_STATUS_VALUE_ALIVE;
     }
 
+    @JsonIgnore
+    public String getHostIdOrCloudIp() {
+        if (hostId != null && hostId > 0) {
+            return String.valueOf(hostId);
+        }
+        return getCloudIp();
+    }
+
     public HostDTO toHostDTO() {
         HostDTO host = new HostDTO();
         host.setHostId(hostId);
         host.setBkCloudId(cloudAreaId);
+        host.setBkCloudName(cloudAreaName);
         host.setIp(ip);
         host.setIpv6(ipv6);
         host.setAgentId(agentId);
         host.setAlive(getAgentAliveValue());
+        host.setOsName(osName);
+        host.setOsType(osType);
+        host.setOsTypeName(osTypeName);
+        host.setHostname(hostName);
         return host;
     }
 
+    public String preferFullIpv6() {
+        try {
+            if (StringUtils.isNotBlank(ipv6) && IpUtils.checkIpv6(ipv6)) {
+                return IpUtils.getFullIpv6ByCompressedOne(ipv6);
+            }
+        } catch (Exception e) {
+            String msg = MessageFormatter.format(
+                "Fail to getFullIpv6ByCompressedOne by {}",
+                ipv6
+            ).getMessage();
+            log.warn(msg, e);
+        }
+        return ipv6;
+    }
 }

@@ -24,6 +24,8 @@
 
 package com.tencent.bk.job.execute.api.esb.v3;
 
+import com.tencent.bk.audit.annotations.AuditEntry;
+import com.tencent.bk.audit.annotations.AuditRequestBody;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.esb.metrics.EsbApiTimed;
 import com.tencent.bk.job.common.esb.model.EsbResp;
@@ -31,19 +33,19 @@ import com.tencent.bk.job.common.esb.model.job.EsbIpDTO;
 import com.tencent.bk.job.common.exception.InvalidParamException;
 import com.tencent.bk.job.common.exception.NotFoundException;
 import com.tencent.bk.job.common.gse.constants.FileDistModeEnum;
+import com.tencent.bk.job.common.iam.constant.ActionId;
 import com.tencent.bk.job.common.metrics.CommonMetricNames;
 import com.tencent.bk.job.common.model.ValidateResult;
 import com.tencent.bk.job.common.model.dto.HostDTO;
 import com.tencent.bk.job.common.service.AppScopeMappingService;
-import com.tencent.bk.job.execute.api.esb.v2.impl.JobQueryCommonProcessor;
 import com.tencent.bk.job.execute.model.FileIpLogContent;
 import com.tencent.bk.job.execute.model.ScriptHostLogContent;
 import com.tencent.bk.job.execute.model.StepInstanceBaseDTO;
-import com.tencent.bk.job.execute.model.TaskInstanceDTO;
 import com.tencent.bk.job.execute.model.esb.v3.EsbFileLogV3DTO;
 import com.tencent.bk.job.execute.model.esb.v3.EsbIpLogV3DTO;
 import com.tencent.bk.job.execute.model.esb.v3.request.EsbGetJobInstanceIpLogV3Request;
 import com.tencent.bk.job.execute.service.LogService;
+import com.tencent.bk.job.execute.service.TaskInstanceAccessProcessor;
 import com.tencent.bk.job.execute.service.TaskInstanceService;
 import com.tencent.bk.job.logsvr.consts.LogTypeEnum;
 import com.tencent.bk.job.logsvr.model.service.ServiceFileTaskLogDTO;
@@ -58,26 +60,30 @@ import java.util.stream.Collectors;
 
 @RestController
 @Slf4j
-public class EsbGetJobInstanceIpLogV3ResourceImpl extends JobQueryCommonProcessor
-    implements EsbGetJobInstanceIpLogV3Resource {
+public class EsbGetJobInstanceIpLogV3ResourceImpl implements EsbGetJobInstanceIpLogV3Resource {
 
     private final TaskInstanceService taskInstanceService;
     private final LogService logService;
+    private final TaskInstanceAccessProcessor taskInstanceAccessProcessor;
     private final AppScopeMappingService appScopeMappingService;
 
     public EsbGetJobInstanceIpLogV3ResourceImpl(LogService logService,
                                                 TaskInstanceService taskInstanceService,
+                                                TaskInstanceAccessProcessor taskInstanceAccessProcessor,
                                                 AppScopeMappingService appScopeMappingService) {
         this.logService = logService;
         this.taskInstanceService = taskInstanceService;
+        this.taskInstanceAccessProcessor = taskInstanceAccessProcessor;
         this.appScopeMappingService = appScopeMappingService;
     }
 
     @Override
     @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v3_get_job_instance_ip_log"})
-    public EsbResp<EsbIpLogV3DTO> getJobInstanceIpLogUsingPost(EsbGetJobInstanceIpLogV3Request request) {
-        request.fillAppResourceScope(appScopeMappingService);
-
+    @AuditEntry(actionId = ActionId.VIEW_HISTORY)
+    public EsbResp<EsbIpLogV3DTO> getJobInstanceIpLogUsingPost(
+        String username,
+        String appCode,
+        @AuditRequestBody EsbGetJobInstanceIpLogV3Request request) {
         ValidateResult checkResult = checkRequest(request);
         if (!checkResult.isPass()) {
             log.warn("Get job instance ip log request is illegal!");
@@ -85,12 +91,8 @@ public class EsbGetJobInstanceIpLogV3ResourceImpl extends JobQueryCommonProcesso
         }
 
         long taskInstanceId = request.getTaskInstanceId();
-        TaskInstanceDTO taskInstance = taskInstanceService.getTaskInstance(taskInstanceId);
-        if (taskInstance == null) {
-            throw new NotFoundException(ErrorCode.TASK_INSTANCE_NOT_EXIST);
-        }
-
-        authViewTaskInstance(request.getUserName(), request.getAppResourceScope(), taskInstance);
+        taskInstanceAccessProcessor.processBeforeAccess(username,
+            request.getAppResourceScope().getAppId(), taskInstanceId);
 
         StepInstanceBaseDTO stepInstance = taskInstanceService.getBaseStepInstance(request.getStepInstanceId());
         if (stepInstance == null) {
@@ -234,8 +236,6 @@ public class EsbGetJobInstanceIpLogV3ResourceImpl extends JobQueryCommonProcesso
                                                       Long cloudAreaId,
                                                       String ip) {
         EsbGetJobInstanceIpLogV3Request request = new EsbGetJobInstanceIpLogV3Request();
-        request.setUserName(username);
-        request.setAppCode(appCode);
         request.setBizId(bizId);
         request.setScopeType(scopeType);
         request.setScopeId(scopeId);
@@ -244,6 +244,7 @@ public class EsbGetJobInstanceIpLogV3ResourceImpl extends JobQueryCommonProcesso
         request.setHostId(hostId);
         request.setCloudAreaId(cloudAreaId);
         request.setIp(ip);
-        return getJobInstanceIpLogUsingPost(request);
+        request.fillAppResourceScope(appScopeMappingService);
+        return getJobInstanceIpLogUsingPost(username, appCode, request);
     }
 }

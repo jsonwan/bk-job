@@ -25,29 +25,29 @@
 package com.tencent.bk.job.manage.task;
 
 import com.tencent.bk.job.common.model.dto.BkUserDTO;
+import com.tencent.bk.job.common.paas.user.UserMgrApiClient;
 import com.tencent.bk.job.common.redis.util.LockUtils;
 import com.tencent.bk.job.common.redis.util.RedisKeyHeartBeatThread;
 import com.tencent.bk.job.common.util.ip.IpUtils;
 import com.tencent.bk.job.manage.dao.notify.EsbUserInfoDAO;
 import com.tencent.bk.job.manage.model.dto.notify.EsbUserInfoDTO;
-import com.tencent.bk.job.manage.service.PaaSService;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import lombok.var;
 import org.apache.commons.lang3.StringUtils;
-import org.jooq.DSLContext;
-import org.jooq.impl.DSL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StopWatch;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -77,15 +77,14 @@ public class EsbUserInfoUpdateTask {
 
     private final String REDIS_KEY_SYNC_USER_JOB_RUNNING_MACHINE = "sync-user-job-running-machine";
     private final RedisTemplate<String, String> redisTemplate;
-    private DSLContext dslContext;
-    private PaaSService paaSService;
-    private EsbUserInfoDAO esbUserInfoDAO;
+    private UserMgrApiClient userMgrApiClient;
+    private final EsbUserInfoDAO esbUserInfoDAO;
 
     @Autowired
-    public EsbUserInfoUpdateTask(DSLContext dslContext, PaaSService paaSService, EsbUserInfoDAO esbUserInfoDAO,
+    public EsbUserInfoUpdateTask(UserMgrApiClient userMgrApiClient,
+                                 EsbUserInfoDAO esbUserInfoDAO,
                                  RedisTemplate<String, String> redisTemplate) {
-        this.dslContext = dslContext;
-        this.paaSService = paaSService;
+        this.userMgrApiClient = userMgrApiClient;
         this.esbUserInfoDAO = esbUserInfoDAO;
         this.redisTemplate = redisTemplate;
     }
@@ -119,7 +118,7 @@ public class EsbUserInfoUpdateTask {
         watch.start("total");
         try {
             // 1.接口数据拉取
-            List<BkUserDTO> userList = paaSService.getAllUserList("", "100");
+            List<BkUserDTO> userList = userMgrApiClient.getAllUserList();
             if (null == userList) {
                 userList = new ArrayList<>();
             }
@@ -132,8 +131,8 @@ public class EsbUserInfoUpdateTask {
             }
 
             // 3.计算差异数据
-            val localUserSet = new HashSet<EsbUserInfoDTO>(esbUserInfoDAO.listEsbUserInfo());
-            val clonedRemoteUserSet = new HashSet<EsbUserInfoDTO>(remoteUserSet);
+            val localUserSet = new HashSet<>(esbUserInfoDAO.listEsbUserInfo());
+            val clonedRemoteUserSet = new HashSet<>(remoteUserSet);
             remoteUserSet.removeAll(localUserSet);
             val insertSet = remoteUserSet;
             logger.info("insertUserInfoSet=" + insertSet.stream()
@@ -144,12 +143,7 @@ public class EsbUserInfoUpdateTask {
                 .map(EsbUserInfoDTO::toString).collect(Collectors.joining(",")));
 
             // 4.入库
-            dslContext.transaction(configuration -> {
-                val context = DSL.using(configuration);
-                deleteSet.forEach(esbUserInfoDTO -> esbUserInfoDAO.deleteEsbUserInfoById(context,
-                    esbUserInfoDTO.getId()));
-                insertSet.forEach(esbUserInfoDTO -> esbUserInfoDAO.insertEsbUserInfo(context, esbUserInfoDTO));
-            });
+            saveEsbUserInfos(deleteSet, insertSet);
         } catch (Throwable t) {
             log.error("FATAL: syncUser thread fail", t);
         } finally {
@@ -158,5 +152,12 @@ public class EsbUserInfoUpdateTask {
             log.info("syncUser time consuming:" + watch.toString());
         }
         return true;
+    }
+
+    @Transactional(value = "jobManageTransactionManager", rollbackFor = Throwable.class)
+    public void saveEsbUserInfos(Set<EsbUserInfoDTO> deleteSet, Set<EsbUserInfoDTO> insertSet) {
+        deleteSet.forEach(esbUserInfoDTO -> esbUserInfoDAO.deleteEsbUserInfoById(
+            esbUserInfoDTO.getId()));
+        insertSet.forEach(esbUserInfoDTO -> esbUserInfoDAO.insertEsbUserInfo(esbUserInfoDTO));
     }
 }

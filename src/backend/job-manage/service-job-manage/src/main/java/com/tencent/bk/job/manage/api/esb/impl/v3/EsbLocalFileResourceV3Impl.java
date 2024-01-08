@@ -24,23 +24,23 @@
 
 package com.tencent.bk.job.manage.api.esb.impl.v3;
 
+import com.tencent.bk.job.common.artifactory.config.ArtifactoryConfig;
 import com.tencent.bk.job.common.artifactory.model.dto.TempUrlInfo;
 import com.tencent.bk.job.common.artifactory.sdk.ArtifactoryClient;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.esb.constants.EsbConsts;
 import com.tencent.bk.job.common.esb.model.EsbResp;
 import com.tencent.bk.job.common.exception.InvalidParamException;
-import com.tencent.bk.job.common.service.AppScopeMappingService;
 import com.tencent.bk.job.common.util.StringUtil;
 import com.tencent.bk.job.common.util.Utils;
 import com.tencent.bk.job.common.util.check.ParamCheckUtil;
 import com.tencent.bk.job.manage.api.esb.v3.EsbLocalFileV3Resource;
-import com.tencent.bk.job.manage.config.ArtifactoryConfig;
 import com.tencent.bk.job.manage.config.LocalFileConfigForManage;
 import com.tencent.bk.job.manage.model.esb.v3.request.EsbGenLocalFileUploadUrlV3Req;
 import com.tencent.bk.job.manage.model.esb.v3.response.EsbUploadUrlV3DTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.File;
@@ -57,22 +57,20 @@ public class EsbLocalFileResourceV3Impl implements EsbLocalFileV3Resource {
     private final ArtifactoryConfig artifactoryConfig;
     private final LocalFileConfigForManage localFileConfigForManage;
     private final ArtifactoryClient artifactoryClient;
-    private final AppScopeMappingService appScopeMappingService;
 
     @Autowired
     public EsbLocalFileResourceV3Impl(ArtifactoryConfig artifactoryConfig,
                                       LocalFileConfigForManage localFileConfigForManage,
-                                      ArtifactoryClient artifactoryClient,
-                                      AppScopeMappingService appScopeMappingService) {
+                                      @Qualifier("jobArtifactoryClient") ArtifactoryClient artifactoryClient) {
         this.artifactoryConfig = artifactoryConfig;
         this.localFileConfigForManage = localFileConfigForManage;
         this.artifactoryClient = artifactoryClient;
-        this.appScopeMappingService = appScopeMappingService;
     }
 
     @Override
-    public EsbResp<EsbUploadUrlV3DTO> generateLocalFileUploadUrl(EsbGenLocalFileUploadUrlV3Req req) {
-        req.fillAppResourceScope(appScopeMappingService);
+    public EsbResp<EsbUploadUrlV3DTO> generateLocalFileUploadUrl(String username,
+                                                                 String appCode,
+                                                                 EsbGenLocalFileUploadUrlV3Req req) {
         // 参数检查
         // fileNameList
         List<String> fileNameList = req.getFileNameList();
@@ -92,7 +90,7 @@ public class EsbLocalFileResourceV3Impl implements EsbLocalFileV3Resource {
             sb.append(File.separatorChar);
             sb.append(Utils.getUUID());
             sb.append(File.separator);
-            sb.append(req.getUserName());
+            sb.append(username);
             sb.append(File.separatorChar);
             sb.append(fileName);
             String filePath = sb.toString();

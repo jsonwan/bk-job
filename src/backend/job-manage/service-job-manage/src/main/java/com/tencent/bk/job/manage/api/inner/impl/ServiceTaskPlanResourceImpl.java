@@ -24,16 +24,16 @@
 
 package com.tencent.bk.job.manage.api.inner.impl;
 
+import com.tencent.bk.job.common.constant.AccountCategoryEnum;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.constant.TaskVariableTypeEnum;
 import com.tencent.bk.job.common.exception.InvalidParamException;
 import com.tencent.bk.job.common.exception.NotFoundException;
-import com.tencent.bk.job.common.i18n.service.MessageI18nService;
 import com.tencent.bk.job.common.model.InternalResponse;
 import com.tencent.bk.job.common.util.json.JsonUtils;
 import com.tencent.bk.job.manage.api.inner.ServiceTaskPlanResource;
-import com.tencent.bk.job.manage.common.consts.account.AccountCategoryEnum;
 import com.tencent.bk.job.manage.common.consts.task.TaskFileTypeEnum;
+import com.tencent.bk.job.manage.common.consts.task.TaskScriptSourceEnum;
 import com.tencent.bk.job.manage.common.consts.task.TaskStepTypeEnum;
 import com.tencent.bk.job.manage.model.dto.AccountDTO;
 import com.tencent.bk.job.manage.model.dto.ScriptDTO;
@@ -60,6 +60,7 @@ import com.tencent.bk.job.manage.model.inner.ServiceTaskVariableDTO;
 import com.tencent.bk.job.manage.model.web.vo.task.TaskPlanVO;
 import com.tencent.bk.job.manage.service.AbstractTaskVariableService;
 import com.tencent.bk.job.manage.service.AccountService;
+import com.tencent.bk.job.manage.service.PublicScriptService;
 import com.tencent.bk.job.manage.service.ScriptService;
 import com.tencent.bk.job.manage.service.plan.TaskPlanService;
 import lombok.extern.slf4j.Slf4j;
@@ -85,23 +86,21 @@ public class ServiceTaskPlanResourceImpl implements ServiceTaskPlanResource {
     private final AbstractTaskVariableService taskVariableService;
 
     private final ScriptService scriptService;
+    private final PublicScriptService publicScriptService;
 
     private final AccountService accountService;
-
-    private final MessageI18nService i18nService;
 
     @Autowired
     public ServiceTaskPlanResourceImpl(
         TaskPlanService taskPlanService,
         @Qualifier("TaskPlanVariableServiceImpl") AbstractTaskVariableService taskVariableService,
-        ScriptService scriptService,
-        AccountService accountService,
-        MessageI18nService i18nService) {
+        ScriptService scriptService, PublicScriptService publicScriptService,
+        AccountService accountService) {
         this.taskPlanService = taskPlanService;
         this.taskVariableService = taskVariableService;
         this.scriptService = scriptService;
+        this.publicScriptService = publicScriptService;
         this.accountService = accountService;
-        this.i18nService = i18nService;
     }
 
     @Override
@@ -207,7 +206,7 @@ public class ServiceTaskPlanResourceImpl implements ServiceTaskPlanResource {
     }
 
     @Override
-    @Transactional(rollbackFor = {Throwable.class})
+    @Transactional(value = "jobManageTransactionManager", rollbackFor = {Throwable.class})
     public InternalResponse<Long> createPlanWithIdForMigration(
         String username,
         Long appId,
@@ -348,7 +347,7 @@ public class ServiceTaskPlanResourceImpl implements ServiceTaskPlanResource {
         scriptStepDTO.setType(scriptStep.getLanguage().getValue());
 
         if (scriptStep.getScriptVersionId() != null && scriptStep.getScriptVersionId() > 0) {
-            ScriptDTO script = scriptService.getScriptVersion(scriptStep.getScriptVersionId());
+            ScriptDTO script = getScriptVersion(scriptStep.getScriptSource(), scriptStep.getScriptVersionId());
             if (script == null) {
                 log.warn("Plan related script is not exist, planId={}, scriptVersionId={}", scriptStep.getPlanId(),
                     scriptStep.getScriptVersionId());
@@ -371,6 +370,19 @@ public class ServiceTaskPlanResourceImpl implements ServiceTaskPlanResource {
         scriptStepDTO.setExecuteTarget(targetServer.toServiceTaskTargetDTO());
         scriptStepDTO.setIgnoreError(scriptStep.getIgnoreError());
         return scriptStepDTO;
+    }
+
+    private ScriptDTO getScriptVersion(TaskScriptSourceEnum scriptSource, long scriptVersionId) {
+        ScriptDTO scriptVersion = null;
+        switch (scriptSource) {
+            case CITING:
+                scriptVersion = scriptService.getScriptVersion(scriptVersionId);
+                break;
+            case PUBLIC:
+                scriptVersion = publicScriptService.getScriptVersion(scriptVersionId);
+                break;
+        }
+        return scriptVersion;
     }
 
     private ServiceAccountDTO buildAccount(Long accountId, Map<Long, ServiceAccountDTO> cacheAccountMap) {
@@ -465,9 +477,7 @@ public class ServiceTaskPlanResourceImpl implements ServiceTaskPlanResource {
             return null;
         }
         List<ServiceTaskVariableDTO> variableDTOS = new ArrayList<>();
-        plan.getVariableList().forEach(variableDTO -> {
-            variableDTOS.add(buildVariable(variableDTO));
-        });
+        plan.getVariableList().forEach(variableDTO -> variableDTOS.add(buildVariable(variableDTO)));
         return variableDTOS;
     }
 

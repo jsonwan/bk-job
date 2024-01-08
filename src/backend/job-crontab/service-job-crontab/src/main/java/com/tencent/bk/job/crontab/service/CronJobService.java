@@ -24,13 +24,14 @@
 
 package com.tencent.bk.job.crontab.service;
 
+import com.tencent.bk.job.common.exception.ServiceException;
 import com.tencent.bk.job.common.model.BaseSearchCondition;
 import com.tencent.bk.job.common.model.PageData;
 import com.tencent.bk.job.crontab.model.BatchUpdateCronJobReq;
+import com.tencent.bk.job.crontab.model.dto.CronJobBasicInfoDTO;
 import com.tencent.bk.job.crontab.model.dto.CronJobInfoDTO;
 import com.tencent.bk.job.crontab.model.inner.ServiceInnerCronJobInfoDTO;
 import com.tencent.bk.job.crontab.model.inner.request.ServiceAddInnerCronJobRequestDTO;
-import com.tencent.bk.job.execute.model.inner.ServiceCronTaskExecuteResultStatistics;
 
 import java.util.List;
 import java.util.Map;
@@ -58,14 +59,6 @@ public interface CronJobService {
     CronJobInfoDTO getCronJobInfoById(Long cronJobId);
 
     /**
-     * 根据 IDs 查询定时任务信息，按照传入的id顺序返回结果
-     *
-     * @param cronJobIdList 定时任务 IDs
-     * @return 定时任务信息
-     */
-    List<CronJobInfoDTO> getOrderedCronJobInfoByIds(List<Long> cronJobIdList);
-
-    /**
      * 根据 IDs 查询定时任务信息，返回Map
      *
      * @param cronJobIdList 定时任务 IDs
@@ -81,6 +74,16 @@ public interface CronJobService {
      * @return 定时任务信息
      */
     CronJobInfoDTO getCronJobInfoById(Long appId, Long cronJobId);
+
+    /**
+     * 根据 ID 查询定时任务信息
+     *
+     * @param username  用户账号
+     * @param appId     业务 ID
+     * @param cronJobId 定时任务 ID
+     * @return 定时任务信息
+     */
+    CronJobInfoDTO getCronJobInfoById(String username, Long appId, Long cronJobId);
 
     /**
      * 根据 ID 查询定时任务错误信息，上次执行状态，错误码，错误次数
@@ -100,21 +103,32 @@ public interface CronJobService {
     boolean updateCronJobErrorById(CronJobInfoDTO cronJobErrorInfo);
 
     /**
-     * 新增、保存定时任务信息
+     * 创建定时任务
      *
-     * @param cronJobInfo 待新增、保存的定时任务信息
-     * @return 定时任务 ID
+     * @param username    用户账号
+     * @param cronJobInfo 定时任务信息
+     * @return 定时任务
      */
-    Long saveCronJobInfo(CronJobInfoDTO cronJobInfo);
+    CronJobInfoDTO createCronJobInfo(String username, CronJobInfoDTO cronJobInfo);
+
+    /**
+     * 更新定时任务信息
+     *
+     * @param username    用户账号
+     * @param cronJobInfo 定时任务信息
+     * @return 定时任务
+     */
+    CronJobInfoDTO updateCronJobInfo(String username, CronJobInfoDTO cronJobInfo);
 
     /**
      * 删除定时任务
      *
+     * @param username  用户账号
      * @param appId     业务 ID
      * @param cronJobId 定时任务 ID
      * @return 是否删除成功
      */
-    Boolean deleteCronJobInfo(Long appId, Long cronJobId);
+    Boolean deleteCronJobInfo(String username, Long appId, Long cronJobId);
 
     /**
      * 启用、禁用定时任务
@@ -192,24 +206,16 @@ public interface CronJobService {
     Boolean deleteInnerCronJob(String systemId, String jobKey);
 
     /**
-     * 根据定时任务 ID 批量执行历史
-     *
-     * @param appId      业务 ID
-     * @param cronIdList 定时任务 ID 列表
-     * @return 定时任务 ID 与执行历史对应表
-     */
-    Map<Long, ServiceCronTaskExecuteResultStatistics> getCronJobExecuteHistory(Long appId, List<Long> cronIdList);
-
-    /**
      * 批量更新定时任务信息
      * <p>
      * 只更新 变量 和 启用 字段
      *
+     * @param username              用户账号
      * @param appId                 业务 ID
      * @param batchUpdateCronJobReq 批量更新请求
      * @return 是否更新成功
      */
-    Boolean batchUpdateCronJob(Long appId, BatchUpdateCronJobReq batchUpdateCronJobReq);
+    Boolean batchUpdateCronJob(String username, Long appId, BatchUpdateCronJobReq batchUpdateCronJobReq);
 
     /**
      * 带 ID 新建定时任务
@@ -245,4 +251,10 @@ public interface CronJobService {
     boolean isExistAnyAppCronJob(Long appId);
 
     Integer countCronJob(Long appId, Boolean active, Boolean cron);
+
+    boolean addJobToQuartz(long appId, long cronJobId) throws ServiceException;
+
+    boolean deleteJobFromQuartz(long appId, long cronJobId);
+
+    List<CronJobBasicInfoDTO> listEnabledCronBasicInfoForUpdate(int start, int limit);
 }

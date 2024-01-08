@@ -56,7 +56,6 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jooq.DSLContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -69,7 +68,6 @@ import java.util.stream.Collectors;
 @Service
 public class IndexServiceImpl implements IndexService {
 
-    private final DSLContext dslContext;
     private final IndexGreetingDAO indexGreetingDAO;
     private final ApplicationDAO applicationDAO;
     private final ApplicationHostDAO applicationHostDAO;
@@ -80,8 +78,7 @@ public class IndexServiceImpl implements IndexService {
     private final HostDetailService hostDetailService;
 
     @Autowired
-    public IndexServiceImpl(DSLContext dslContext,
-                            IndexGreetingDAO indexGreetingDAO,
+    public IndexServiceImpl(IndexGreetingDAO indexGreetingDAO,
                             ApplicationDAO applicationDAO,
                             ApplicationHostDAO applicationHostDAO,
                             TopologyHelper topologyHelper,
@@ -89,7 +86,6 @@ public class IndexServiceImpl implements IndexService {
                             TaskTemplateDAO taskTemplateDAO,
                             ScriptDAO scriptDAO,
                             HostDetailService hostDetailService) {
-        this.dslContext = dslContext;
         this.indexGreetingDAO = indexGreetingDAO;
         this.applicationDAO = applicationDAO;
         this.applicationHostDAO = applicationHostDAO;
@@ -104,7 +100,7 @@ public class IndexServiceImpl implements IndexService {
     public List<GreetingVO> listGreeting(String username) {
         String normalLang = LocaleUtils.getNormalLang(JobContextUtil.getUserLang());
         int currentSeconds = TimeUtil.getCurrentSeconds();
-        return indexGreetingDAO.listActiveIndexGreeting(dslContext, currentSeconds).stream().map(it -> {
+        return indexGreetingDAO.listActiveIndexGreeting(currentSeconds).stream().map(it -> {
             String content;
             if (normalLang.equals(LocaleUtils.LANG_EN) || normalLang.equals(LocaleUtils.LANG_EN_US)) {
                 content = it.getContentEn();
@@ -125,8 +121,8 @@ public class IndexServiceImpl implements IndexService {
     public AgentStatistics getAgentStatistics(String username, AppResourceScope appResourceScope) {
         // 查出业务
         ApplicationDTO appInfo = applicationDAO.getAppById(appResourceScope.getAppId());
-        long normalNum = 0L;
-        long abnormalNum = 0L;
+        int aliveCount = 0;
+        int notAliveCount = 0;
         List<Long> bizIds;
         if (appInfo.isBiz()) {
             // 普通业务
@@ -145,12 +141,12 @@ public class IndexServiceImpl implements IndexService {
         List<HostStatusNumStatisticsDTO> statisticsDTOS = applicationHostDAO.countHostStatusNumByBizIds(bizIds);
         for (HostStatusNumStatisticsDTO statisticsDTO : statisticsDTOS) {
             if (statisticsDTO.getGseAgentAlive() == AgentAliveStatusEnum.ALIVE.getStatusValue()) {
-                normalNum += statisticsDTO.getHostNum();
+                aliveCount += statisticsDTO.getHostNum();
             } else {
-                abnormalNum += statisticsDTO.getHostNum();
+                notAliveCount += statisticsDTO.getHostNum();
             }
         }
-        return new AgentStatistics((int) normalNum, (int) abnormalNum);
+        return new AgentStatistics(aliveCount, notAliveCount);
     }
 
     /**
@@ -195,7 +191,7 @@ public class IndexServiceImpl implements IndexService {
         List<HostInfoVO> hostInfoVOList;
         val hosts = applicationHostDAO.listHostInfoBySearchContents(
             bizIds, null, null, null, status, start, pageSize);
-        hostDetailService.fillDetailForHosts(hosts);
+        hostDetailService.fillDetailForApplicationHosts(hosts);
         Long count = applicationHostDAO.countHostInfoBySearchContents(
             bizIds, null, null, null, status);
         hostInfoVOList = hosts.stream()

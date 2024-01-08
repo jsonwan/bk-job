@@ -1,4 +1,4 @@
-{{- if and (.Values.analysisConfig.enabled) (.Values.analysisConfig) }}
+{{- if and (.Values.analysisConfig.enabled) (.Values.analysisConfig) (eq .Values.deploy.mode "standard") }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -62,11 +62,7 @@ data:
           max-file-size: 5GB
           max-request-size: 5GB
     feign:
-      client:
-        config:
-          default:
-            connectTimeout: 5000
-            readTimeout: 300000
+      {{- toYaml .Values.analysisConfig.feign | nindent 6 }}
     server:
       port: {{ .Values.analysisConfig.containerPort }}
 {{- end }}

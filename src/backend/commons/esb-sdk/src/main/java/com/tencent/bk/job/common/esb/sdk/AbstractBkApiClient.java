@@ -26,147 +26,154 @@ package com.tencent.bk.job.common.esb.sdk;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.tencent.bk.job.common.constant.ErrorCode;
+import com.tencent.bk.job.common.constant.HttpMethodEnum;
+import com.tencent.bk.job.common.esb.constants.EsbLang;
+import com.tencent.bk.job.common.esb.metrics.EsbMetricTags;
 import com.tencent.bk.job.common.esb.model.BkApiAuthorization;
 import com.tencent.bk.job.common.esb.model.EsbResp;
+import com.tencent.bk.job.common.esb.model.OpenApiRequestInfo;
 import com.tencent.bk.job.common.exception.InternalException;
-import com.tencent.bk.job.common.util.http.ExtHttpHelper;
-import com.tencent.bk.job.common.util.http.HttpHelperFactory;
+import com.tencent.bk.job.common.util.JobContextUtil;
+import com.tencent.bk.job.common.util.http.HttpHelper;
+import com.tencent.bk.job.common.util.http.HttpRequest;
+import com.tencent.bk.job.common.util.http.HttpResponse;
+import com.tencent.bk.job.common.util.json.JsonMapper;
 import com.tencent.bk.job.common.util.json.JsonUtils;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.message.BasicHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpMethod;
 
+import javax.servlet.http.HttpServletRequest;
+import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
+import static com.tencent.bk.job.common.constant.HttpHeader.HDR_BK_LANG;
+import static com.tencent.bk.job.common.i18n.locale.LocaleUtils.COMMON_LANG_HEADER;
+
 /**
- * 蓝鲸API调用客户端 - for BK API Gateway
+ * 蓝鲸API（组件 API（ESB）、网关 API（蓝鲸 ApiGateway)）调用客户端
  */
 public abstract class AbstractBkApiClient {
+
+    private String lang;
     private final Logger log = LoggerFactory.getLogger(this.getClass());
-    private final String bkApiGatewayUrl;
-    private final String appSecret;
-    private final String appCode;
-    private final ExtHttpHelper defaultHttpHelper = HttpHelperFactory.getDefaultHttpHelper();
+    private final String baseAccessUrl;
+    private final HttpHelper defaultHttpHelper;
     private final MeterRegistry meterRegistry;
+    private static final String BK_API_AUTH_HEADER = "X-Bkapi-Authorization";
     /**
      * API调用度量指标名称
      */
     private final String metricName;
+    private JsonMapper jsonMapper = JsonMapper.nonNullMapper();
+
+    /**
+     * @param meterRegistry     MeterRegistry
+     * @param metricName        API http 请求指标名称
+     * @param baseAccessUrl     API 服务访问地址
+     * @param defaultHttpHelper http 请求处理客户端
+     */
+    public AbstractBkApiClient(MeterRegistry meterRegistry,
+                               String metricName,
+                               String baseAccessUrl,
+                               HttpHelper defaultHttpHelper) {
+        this.meterRegistry = meterRegistry;
+        this.metricName = metricName;
+        this.baseAccessUrl = baseAccessUrl;
+        this.defaultHttpHelper = defaultHttpHelper;
+    }
 
     public AbstractBkApiClient(MeterRegistry meterRegistry,
                                String metricName,
-                               String bkApiGatewayUrl,
-                               String appCode,
-                               String appSecret) {
-        this.meterRegistry = meterRegistry;
-        this.metricName = metricName;
-        this.bkApiGatewayUrl = bkApiGatewayUrl;
-        this.appCode = appCode;
-        this.appSecret = appSecret;
+                               String baseAccessUrl,
+                               HttpHelper defaultHttpHelper,
+                               String lang) {
+        this(meterRegistry, metricName, baseAccessUrl, defaultHttpHelper);
+        this.lang = lang;
     }
 
-    private <T> String postForString(String uri, T body, ExtHttpHelper httpHelper) {
-        if (httpHelper == null) {
-            httpHelper = defaultHttpHelper;
-        }
-        String responseBody;
-        String url;
-        if (!bkApiGatewayUrl.endsWith("/") && !uri.startsWith("/")) {
-            url = bkApiGatewayUrl + "/" + uri;
-        } else {
-            url = bkApiGatewayUrl + uri;
-        }
-        Header[] header = buildBkApiRequestHeaders();
-        responseBody = httpHelper.post(url, "UTF-8", buildPostBody(body), header);
-        return responseBody;
+    /**
+     * 配置自定义的 JsonMapper, 用于序列化 Json 数据
+     *
+     * @param jsonMapper jsonMapper
+     */
+    public void setJsonMapper(JsonMapper jsonMapper) {
+        this.jsonMapper = jsonMapper;
     }
 
-    private Header[] buildBkApiRequestHeaders() {
-        Header[] header = new Header[2];
-        header[0] = new BasicHeader("Content-Type", "application/json");
-        header[1] = buildBkApiAuthorizationHeader();
-        return header;
+    public <T, R> EsbResp<R> doRequest(OpenApiRequestInfo<T> requestInfo,
+                                       TypeReference<EsbResp<R>> typeReference,
+                                       HttpHelper httpHelper) {
+        return doRequest(requestInfo, typeReference, null, httpHelper);
     }
 
-    private Header buildBkApiAuthorizationHeader() {
-        BkApiAuthorization authorization = new BkApiAuthorization(appCode, appSecret);
-        return new BasicHeader("X-Bkapi-Authorization", JsonUtils.toJson(authorization));
+    public <T, R> EsbResp<R> doRequest(OpenApiRequestInfo<T> requestInfo,
+                                       TypeReference<EsbResp<R>> typeReference) {
+        return doRequest(requestInfo, typeReference, null);
     }
 
-    protected <T> String buildPostBody(T params) {
-        return JsonUtils.toJson(params);
-    }
-
-
-    public <T, R> EsbResp<R> doHttpPost(String uri,
-                                        T reqBody,
-                                        TypeReference<EsbResp<R>> typeReference) {
-        return doHttpPost(uri, reqBody, typeReference, null, null);
-    }
-
-    public <T, R> EsbResp<R> doHttpPost(String uri,
-                                        T reqBody,
-                                        TypeReference<EsbResp<R>> typeReference,
-                                        ExtHttpHelper httpHelper,
-                                        BkApiLogStrategy logStrategy) {
-        String reqStr = JsonUtils.toJsonWithoutSkippedFields(reqBody);
-        long startTime = System.currentTimeMillis();
-        BkApiContext<T, R> apiContext
-            = new BkApiContext<>(HttpMethod.POST.name(), uri, reqBody, null, null, 0, false);
+    public <T, R> EsbResp<R> doRequest(OpenApiRequestInfo<T> requestInfo,
+                                       TypeReference<EsbResp<R>> typeReference,
+                                       BkApiLogStrategy logStrategy,
+                                       HttpHelper httpHelper) {
+        HttpMethodEnum httpMethod = requestInfo.getMethod();
+        BkApiContext<T, R> apiContext = new BkApiContext<>(httpMethod.name(), requestInfo.getUri(),
+            requestInfo.getBody(), null, null, 0, false);
 
         if (logStrategy != null) {
             logStrategy.logReq(log, apiContext);
         } else {
             if (log.isInfoEnabled()) {
-                log.info("[AbstractBkApiClient] Request|method={}|uri={}|reqStr={}", HttpMethod.POST.name(), uri,
-                    reqStr);
+                log.info("[AbstractBkApiClient] Request|method={}|uri={}|reqStr={}",
+                    httpMethod.name(), requestInfo.getUri(),
+                    requestInfo.getBody() != null ? JsonUtils.toJsonWithoutSkippedFields(requestInfo.getBody()) : null);
             }
         }
 
         try {
-            return requestApiAndWrapResponse(HttpMethod.POST, apiContext, typeReference, httpHelper);
+            return requestApiAndWrapResponse(requestInfo, apiContext, typeReference, httpHelper);
         } finally {
-            apiContext.setCostTime(System.currentTimeMillis() - startTime);
             if (logStrategy != null) {
                 logStrategy.logResp(log, apiContext);
             } else {
                 if (log.isInfoEnabled()) {
                     log.info("[AbstractBkApiClient] Response|method={}|uri={}|success={}|costTime={}|resp={}",
-                        HttpMethod.POST.name(), uri, apiContext.isSuccess(), apiContext.getCostTime(),
-                        apiContext.getOriginResp());
+                        httpMethod.name(), requestInfo.getUri(), apiContext.isSuccess(),
+                        apiContext.getCostTime(), apiContext.getOriginResp());
                 }
             }
         }
     }
 
-    private <T, R> EsbResp<R> requestApiAndWrapResponse(HttpMethod httpMethod,
+    private <T, R> EsbResp<R> requestApiAndWrapResponse(OpenApiRequestInfo<T> requestInfo,
                                                         BkApiContext<T, R> apiContext,
                                                         TypeReference<EsbResp<R>> typeReference,
-                                                        ExtHttpHelper httpHelper) {
+                                                        HttpHelper httpHelper) {
         String uri = apiContext.getUri();
-        T reqBody = apiContext.getReq();
-        String reqStr = JsonUtils.toJsonWithoutSkippedFields(apiContext.getReq());
         EsbResp<R> esbResp;
-        String respStr = null;
-        String status = "ok";
+        String respStr;
+        String status = EsbMetricTags.VALUE_STATUS_OK;
+        HttpMethodEnum httpMethod = requestInfo.getMethod();
         long start = System.currentTimeMillis();
         try {
-            respStr = requestApi(httpMethod, uri, reqBody, httpHelper);
+            respStr = requestApi(httpHelper, requestInfo);
             apiContext.setOriginResp(respStr);
 
             if (StringUtils.isBlank(respStr)) {
                 String errorMsg = "[AbstractBkApiClient] " + httpMethod.name() + " "
                     + uri + ", error: " + "Response is blank";
                 log.error(errorMsg);
-                status = "error";
+                status = EsbMetricTags.VALUE_STATUS_ERROR;
                 throw new InternalException(errorMsg, ErrorCode.API_ERROR);
             }
 
-            esbResp = JsonUtils.fromJson(respStr, typeReference);
+            esbResp = jsonMapper.fromJson(respStr, typeReference);
             apiContext.setResp(esbResp);
             if (!esbResp.isSuccess()) {
                 log.warn(
@@ -177,10 +184,10 @@ public abstract class AbstractBkApiClient {
                     esbResp.getMessage(),
                     httpMethod.name(),
                     uri,
-                    reqStr,
+                    apiContext.getReq() != null ? JsonUtils.toJsonWithoutSkippedFields(apiContext.getReq()) : null,
                     respStr
                 );
-                status = "error";
+                status = EsbMetricTags.VALUE_STATUS_ERROR;
             }
             if (esbResp.getData() == null) {
                 log.warn(
@@ -191,7 +198,7 @@ public abstract class AbstractBkApiClient {
                     esbResp.getMessage(),
                     httpMethod.name(),
                     uri,
-                    reqStr,
+                    apiContext.getReq() != null ? JsonUtils.toJsonWithoutSkippedFields(apiContext.getReq()) : null,
                     respStr
                 );
             }
@@ -199,41 +206,97 @@ public abstract class AbstractBkApiClient {
             return esbResp;
         } catch (Throwable e) {
             String errorMsg = "Fail to request api|method=" + httpMethod.name()
-                + "|uri=" + uri
-                + "|reqStr=" + reqStr
-                + "|respStr=" + respStr;
+                + "|uri=" + uri;
             log.error(errorMsg, e);
             apiContext.setSuccess(false);
-            status = "error";
+            status = EsbMetricTags.VALUE_STATUS_ERROR;
             throw new InternalException("Fail to request bk api", e, ErrorCode.API_ERROR);
         } finally {
-            long end = System.currentTimeMillis();
-            meterRegistry.timer(metricName, "api_name", uri,
-                "status", status).record(end - start, TimeUnit.MILLISECONDS);
+            long cost = System.currentTimeMillis() - start;
+            apiContext.setCostTime(cost);
+            if (meterRegistry != null) {
+                meterRegistry.timer(metricName, buildMetricTags(uri, status))
+                    .record(cost, TimeUnit.MILLISECONDS);
+            }
         }
     }
 
-    private <T> String requestApi(HttpMethod httpMethod,
-                                  String uri,
-                                  T reqBody,
-                                  ExtHttpHelper httpHelper) {
-        String respStr = null;
-        switch (httpMethod) {
-            case POST:
-                respStr = postForString(uri, reqBody, httpHelper);
-                break;
-            default:
-                log.warn("Unimplemented http method: {}", httpMethod.name());
-                break;
+    private Iterable<Tag> buildMetricTags(String uri, String status) {
+        Tags tags = Tags.of(EsbMetricTags.KEY_API_NAME, uri).and(EsbMetricTags.KEY_STATUS, status);
+        Collection<Tag> extraTags = getExtraMetricsTags();
+        if (CollectionUtils.isNotEmpty(extraTags)) {
+            extraTags.forEach(tags::and);
         }
-        return respStr;
+        return tags;
     }
 
-    public <T, R> EsbResp<R> doHttpPost(String uri,
-                                        T reqBody,
-                                        TypeReference<EsbResp<R>> typeReference,
-                                        ExtHttpHelper httpHelper) {
-        return doHttpPost(uri, reqBody, typeReference, httpHelper, null);
+    private <T> String requestApi(HttpHelper httpHelper, OpenApiRequestInfo<T> requestInfo) {
+        String url = buildApiUrl(requestInfo.buildFinalUri());
+
+        Header[] headers = buildBkApiRequestHeaders(requestInfo.getAuthorization());
+        HttpRequest httpRequest = HttpRequest.builder(requestInfo.getMethod(), url)
+            .setHeaders(headers)
+            .setKeepAlive(true)
+            .setRetryMode(requestInfo.getRetryMode())
+            .setIdempotent(requestInfo.getIdempotent())
+            .setStringEntity(requestInfo.getBody() != null ? jsonMapper.toJson(requestInfo.getBody()) : null)
+            .build();
+
+        HttpResponse httpResponse = chooseHttpHelper(httpHelper).request(httpRequest);
+        return httpResponse.getEntity();
+    }
+
+    private HttpHelper chooseHttpHelper(HttpHelper httpHelper) {
+        return httpHelper != null ? httpHelper : defaultHttpHelper;
+    }
+
+    private String buildApiUrl(String uri) {
+        String url;
+        if (!baseAccessUrl.endsWith("/") && !uri.startsWith("/")) {
+            url = baseAccessUrl + "/" + uri;
+        } else {
+            url = baseAccessUrl + uri;
+        }
+        return url;
+    }
+
+    private Header[] buildBkApiRequestHeaders(BkApiAuthorization authorization) {
+        Header[] header = new Header[3];
+        header[0] = new BasicHeader("Content-Type", "application/json");
+        header[1] = buildBkApiAuthorizationHeader(authorization);
+        if (StringUtils.isNotEmpty(lang)) {
+            header[2] = new BasicHeader(HDR_BK_LANG, lang);
+        } else {
+            header[2] = new BasicHeader(HDR_BK_LANG, getLangFromRequest());
+        }
+        return header;
+    }
+
+    private Header buildBkApiAuthorizationHeader(BkApiAuthorization authorization) {
+        return new BasicHeader(BK_API_AUTH_HEADER, jsonMapper.toJson(authorization));
+    }
+
+    private String getLangFromRequest() {
+        try {
+            HttpServletRequest request = JobContextUtil.getRequest();
+            String lang = null;
+            if (request != null) {
+                lang = request.getHeader(COMMON_LANG_HEADER);
+            }
+
+            return StringUtils.isEmpty(lang) ? EsbLang.EN : lang;
+        } catch (Throwable ignore) {
+            return EsbLang.EN;
+        }
+    }
+
+    /**
+     * 额外的监控指标 tag
+     *
+     * @return tag
+     */
+    protected Collection<Tag> getExtraMetricsTags() {
+        return null;
     }
 
 }

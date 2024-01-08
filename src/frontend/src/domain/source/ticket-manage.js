@@ -39,10 +39,23 @@ class TicketManage extends ModuleBase {
       params,
     });
   }
+  // 获取凭证列表
+  getBasicInfoList(params = {}) {
+    return Request.get(`${this.path}/basicInfo/list`, {
+      params,
+    });
+  }
 
   // 新建凭证
+  create(params = {}) {
+    return Request.post(`${this.path}`, {
+      params,
+    });
+  }
+
+  // 修改凭证
   update(params) {
-    return Request.post(`${this.path}/`, {
+    return Request.put(`${this.path}/${params.id}`, {
       params,
     });
   }

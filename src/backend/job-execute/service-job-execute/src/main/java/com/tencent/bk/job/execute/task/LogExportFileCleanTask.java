@@ -24,15 +24,15 @@
 
 package com.tencent.bk.job.execute.task;
 
+import com.tencent.bk.job.common.artifactory.config.ArtifactoryConfig;
 import com.tencent.bk.job.common.artifactory.model.dto.NodeDTO;
 import com.tencent.bk.job.common.artifactory.model.dto.PageData;
 import com.tencent.bk.job.common.artifactory.sdk.ArtifactoryClient;
 import com.tencent.bk.job.common.constant.JobConstants;
 import com.tencent.bk.job.common.util.date.DateUtils;
 import com.tencent.bk.job.common.util.file.PathUtil;
-import com.tencent.bk.job.execute.config.ArtifactoryConfig;
 import com.tencent.bk.job.execute.config.LogExportConfig;
-import com.tencent.bk.job.execute.config.StorageSystemConfig;
+import com.tencent.bk.job.execute.config.StorageConfig;
 import com.tencent.bk.job.execute.constants.Consts;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -41,6 +41,7 @@ import org.apache.commons.io.filefilter.AgeFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.slf4j.helpers.FormattingTuple;
 import org.slf4j.helpers.MessageFormatter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -58,16 +59,16 @@ public class LogExportFileCleanTask {
 
     private final LogExportConfig logExportConfig;
     private final ArtifactoryConfig artifactoryConfig;
-    private final StorageSystemConfig storageSystemConfig;
+    private final StorageConfig storageConfig;
     private final ArtifactoryClient artifactoryClient;
 
     public LogExportFileCleanTask(LogExportConfig logExportConfig,
                                   ArtifactoryConfig artifactoryConfig,
-                                  StorageSystemConfig storageSystemConfig,
-                                  ArtifactoryClient artifactoryClient) {
+                                  StorageConfig storageConfig,
+                                  @Qualifier("jobArtifactoryClient") ArtifactoryClient artifactoryClient) {
         this.logExportConfig = logExportConfig;
         this.artifactoryConfig = artifactoryConfig;
-        this.storageSystemConfig = storageSystemConfig;
+        this.storageConfig = storageConfig;
         this.artifactoryClient = artifactoryClient;
     }
 
@@ -160,7 +161,7 @@ public class LogExportFileCleanTask {
             System.currentTimeMillis() - logExportConfig.getArtifactoryFileExpireDays() * 3600 * 24 * 1000
         );
         String logExportFileDirPath = PathUtil.joinFilePath(
-            storageSystemConfig.getJobStorageRootPath(), Consts.LOG_EXPORT_DIR_NAME
+            storageConfig.getJobStorageRootPath(), Consts.LOG_EXPORT_DIR_NAME
         );
         Iterator<File> fileIterator = FileUtils.iterateFiles(
             new File(logExportFileDirPath),

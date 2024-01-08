@@ -28,9 +28,9 @@ import com.tencent.bk.job.common.iam.model.AuthResult;
 import com.tencent.bk.job.common.model.InternalResponse;
 import com.tencent.bk.job.common.model.iam.AuthResultDTO;
 import com.tencent.bk.job.common.util.json.JsonUtils;
-import com.tencent.bk.job.crontab.client.ServiceExecuteTaskResourceClient;
 import com.tencent.bk.job.crontab.exception.TaskExecuteAuthFailedException;
 import com.tencent.bk.job.crontab.service.ExecuteTaskService;
+import com.tencent.bk.job.execute.api.inner.ServiceExecuteTaskResource;
 import com.tencent.bk.job.execute.model.inner.ServiceTaskExecuteResult;
 import com.tencent.bk.job.execute.model.inner.ServiceTaskVariable;
 import com.tencent.bk.job.execute.model.inner.request.ServiceTaskExecuteRequest;
@@ -48,11 +48,11 @@ import java.util.List;
 @Service
 public class ExecuteTaskServiceImpl implements ExecuteTaskService {
 
-    private ServiceExecuteTaskResourceClient serviceExecuteTaskResourceClient;
+    private final ServiceExecuteTaskResource executeTaskResource;
 
     @Autowired
-    public ExecuteTaskServiceImpl(ServiceExecuteTaskResourceClient serviceExecuteTaskResourceClient) {
-        this.serviceExecuteTaskResourceClient = serviceExecuteTaskResourceClient;
+    public ExecuteTaskServiceImpl(ServiceExecuteTaskResource executeTaskResource) {
+        this.executeTaskResource = executeTaskResource;
     }
 
     @Override
@@ -75,8 +75,8 @@ public class ExecuteTaskServiceImpl implements ExecuteTaskService {
                 log.debug("Sending request to executor|{}", request);
             }
 
-            InternalResponse<ServiceTaskExecuteResult> taskExecuteResult =
-                serviceExecuteTaskResourceClient.executeTask(request);
+            InternalResponse<ServiceTaskExecuteResult> resp =
+                executeTaskResource.executeTask(request);
             log.info(
                 "Get execute task by cron|appId={}|taskId={}|cronTaskId={}|cronName={}|operator={}|result={}",
                 appId,
@@ -84,9 +84,9 @@ public class ExecuteTaskServiceImpl implements ExecuteTaskService {
                 cronTaskId,
                 cronName,
                 operator,
-                JsonUtils.toJson(taskExecuteResult)
+                JsonUtils.toJson(resp)
             );
-            return taskExecuteResult;
+            return resp;
         } catch (Throwable e) {
             String msg = MessageFormatter.arrayFormat(
                 "Get execute task by cron caught exception|appId={}|taskId={}|cronTaskId={}|cronName={}|operator={}",
@@ -123,7 +123,7 @@ public class ExecuteTaskServiceImpl implements ExecuteTaskService {
             log.debug("Sending auth execute request to executor|{}", request);
         }
 
-        InternalResponse<AuthResultDTO> authExecuteResult = serviceExecuteTaskResourceClient.authExecuteTask(request);
+        InternalResponse<AuthResultDTO> authExecuteResult = executeTaskResource.authExecuteTask(request);
         log.info("Auth execute result|appId|{}|taskId|{}|cronTaskId|{}|{}|operator|{}|result|{}", appId,
             taskId, cronTaskId, cronName, operator, JsonUtils.toJson(authExecuteResult));
         if (authExecuteResult != null) {

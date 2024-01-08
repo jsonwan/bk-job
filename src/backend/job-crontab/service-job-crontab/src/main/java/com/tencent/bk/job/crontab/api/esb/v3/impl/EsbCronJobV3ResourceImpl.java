@@ -24,6 +24,9 @@
 
 package com.tencent.bk.job.crontab.api.esb.v3.impl;
 
+import com.tencent.bk.audit.annotations.AuditEntry;
+import com.tencent.bk.audit.annotations.AuditRequestBody;
+import com.tencent.bk.audit.context.AuditContext;
 import com.tencent.bk.job.common.constant.ErrorCode;
 import com.tencent.bk.job.common.constant.TaskVariableTypeEnum;
 import com.tencent.bk.job.common.esb.metrics.EsbApiTimed;
@@ -32,6 +35,7 @@ import com.tencent.bk.job.common.esb.model.job.v3.EsbGlobalVarV3DTO;
 import com.tencent.bk.job.common.esb.model.job.v3.EsbPageDataV3;
 import com.tencent.bk.job.common.exception.InternalException;
 import com.tencent.bk.job.common.exception.InvalidParamException;
+import com.tencent.bk.job.common.iam.constant.ActionId;
 import com.tencent.bk.job.common.iam.exception.PermissionDeniedException;
 import com.tencent.bk.job.common.iam.model.AuthResult;
 import com.tencent.bk.job.common.metrics.CommonMetricNames;
@@ -44,7 +48,6 @@ import com.tencent.bk.job.common.util.date.DateUtils;
 import com.tencent.bk.job.crontab.api.common.CronCheckUtil;
 import com.tencent.bk.job.crontab.api.esb.v3.EsbCronJobV3Resource;
 import com.tencent.bk.job.crontab.auth.CronAuthService;
-import com.tencent.bk.job.crontab.client.ServiceTaskPlanResourceClient;
 import com.tencent.bk.job.crontab.common.constants.CronStatusEnum;
 import com.tencent.bk.job.crontab.exception.TaskExecuteAuthFailedException;
 import com.tencent.bk.job.crontab.model.dto.CronJobInfoDTO;
@@ -57,6 +60,7 @@ import com.tencent.bk.job.crontab.model.esb.v3.response.EsbCronInfoV3DTO;
 import com.tencent.bk.job.crontab.model.inner.ServerDTO;
 import com.tencent.bk.job.crontab.service.CronJobService;
 import com.tencent.bk.job.crontab.util.CronExpressionUtil;
+import com.tencent.bk.job.manage.api.inner.ServiceTaskPlanResource;
 import com.tencent.bk.job.manage.model.inner.ServiceTaskVariableDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -76,13 +80,13 @@ public class EsbCronJobV3ResourceImpl implements EsbCronJobV3Resource {
 
     private final CronJobService cronJobService;
     private final CronAuthService cronAuthService;
-    private final ServiceTaskPlanResourceClient taskPlanResource;
+    private final ServiceTaskPlanResource taskPlanResource;
     private final AppScopeMappingService appScopeMappingService;
 
     @Autowired
     public EsbCronJobV3ResourceImpl(CronJobService cronJobService,
                                     CronAuthService cronAuthService,
-                                    ServiceTaskPlanResourceClient taskPlanResource,
+                                    ServiceTaskPlanResource taskPlanResource,
                                     AppScopeMappingService appScopeMappingService) {
         this.cronJobService = cronJobService;
         this.cronAuthService = cronAuthService;
@@ -108,8 +112,6 @@ public class EsbCronJobV3ResourceImpl implements EsbCronJobV3Resource {
                                                                 Integer start,
                                                                 Integer length) {
         EsbGetCronListV3Request request = new EsbGetCronListV3Request();
-        request.setUserName(username);
-        request.setAppCode(appCode);
         request.setBizId(bizId);
         request.setScopeType(scopeType);
         request.setScopeId(scopeId);
@@ -124,7 +126,8 @@ public class EsbCronJobV3ResourceImpl implements EsbCronJobV3Resource {
         request.setLastModifyTimeStart(lastModifyTimeStart);
         request.setStart(start);
         request.setLength(length);
-        return getCronListUsingPost(request);
+        request.fillAppResourceScope(appScopeMappingService);
+        return getCronListUsingPost(username, appCode, request);
     }
 
     @Override
@@ -135,19 +138,19 @@ public class EsbCronJobV3ResourceImpl implements EsbCronJobV3Resource {
                                                    String scopeId,
                                                    Long id) {
         EsbGetCronDetailV3Request request = new EsbGetCronDetailV3Request();
-        request.setUserName(username);
-        request.setAppCode(appCode);
         request.setBizId(bizId);
         request.setScopeType(scopeType);
         request.setScopeId(scopeId);
         request.setId(id);
-        return getCronDetailUsingPost(request);
+        request.fillAppResourceScope(appScopeMappingService);
+        return getCronDetailUsingPost(username, appCode, request);
     }
 
     @Override
     @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v3_get_cron_list"})
-    public EsbResp<EsbPageDataV3<EsbCronInfoV3DTO>> getCronListUsingPost(EsbGetCronListV3Request request) {
-        request.fillAppResourceScope(appScopeMappingService);
+    public EsbResp<EsbPageDataV3<EsbCronInfoV3DTO>> getCronListUsingPost(String username,
+                                                                         String appCode,
+                                                                         EsbGetCronListV3Request request) {
         if (request.validate()) {
             if (request.getId() != null && request.getId() > 0) {
                 CronJobInfoDTO cronJobInfoById = cronJobService.getCronJobInfoById(request.getAppId(), request.getId());
@@ -205,13 +208,14 @@ public class EsbCronJobV3ResourceImpl implements EsbCronJobV3Resource {
 
     @Override
     @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v3_update_cron_status"})
-    public EsbResp<EsbCronInfoV3DTO> updateCronStatus(EsbUpdateCronStatusV3Request request) {
-        request.fillAppResourceScope(appScopeMappingService);
-        String username = request.getUserName();
+    @AuditEntry(actionId = ActionId.MANAGE_CRON)
+    public EsbResp<EsbCronInfoV3DTO> updateCronStatus(String username,
+                                                      String appCode,
+                                                      @AuditRequestBody EsbUpdateCronStatusV3Request request) {
         Long appId = request.getAppId();
         request.validate();
         AuthResult authResult = cronAuthService.authManageCron(
-            request.getUserName(),
+            username,
             new AppResourceScope(request.getScopeType(), request.getScopeId(), request.getAppId()),
             request.getId(),
             null
@@ -284,30 +288,20 @@ public class EsbCronJobV3ResourceImpl implements EsbCronJobV3Resource {
 
     @Override
     @EsbApiTimed(value = CommonMetricNames.ESB_API, extraTags = {"api_name", "v3_save_cron"})
-    public EsbResp<EsbCronInfoV3DTO> saveCron(EsbSaveCronV3Request request) {
-        request.fillAppResourceScope(appScopeMappingService);
+    @AuditEntry
+    public EsbResp<EsbCronInfoV3DTO> saveCron(String username,
+                                              String appCode,
+                                              @AuditRequestBody EsbSaveCronV3Request request) {
+        boolean isUpdate = request.getId() != null && request.getId() > 0;
+        // 判断审计操作
+        AuditContext.current().updateActionId(isUpdate ? ActionId.MANAGE_CRON : ActionId.CREATE_CRON);
+
         CronJobInfoDTO cronJobInfo = new CronJobInfoDTO();
         EsbCronInfoV3DTO esbCronInfoV3DTO = new EsbCronInfoV3DTO();
         esbCronInfoV3DTO.setId(0L);
         checkRequest(request);
         Long appId = request.getAppId();
-        AuthResult authResult;
-        if (request.getId() != null && request.getId() > 0) {
-            authResult = cronAuthService.authManageCron(
-                request.getUserName(),
-                request.getAppResourceScope(),
-                request.getId(),
-                null
-            );
-        } else {
-            authResult = cronAuthService.authCreateCron(
-                request.getUserName(),
-                request.getAppResourceScope()
-            );
-        }
-        if (!authResult.isPass()) {
-            throw new PermissionDeniedException(authResult);
-        }
+
         cronJobInfo.setId(request.getId());
         cronJobInfo.setAppId(appId);
         cronJobInfo.setName(request.getName());
@@ -319,20 +313,21 @@ public class EsbCronJobV3ResourceImpl implements EsbCronJobV3Resource {
             checkAndFillGlobalVar(request.getPlanId(), globalVarV3DTOList, cronJobInfo);
         }
         if (cronJobInfo.getId() == null || cronJobInfo.getId() == 0) {
-            cronJobInfo.setCreator(request.getUserName());
+            cronJobInfo.setCreator(username);
             cronJobInfo.setDelete(false);
         }
         cronJobInfo.setEnable(false);
-        cronJobInfo.setLastModifyUser(request.getUserName());
+        cronJobInfo.setLastModifyUser(username);
         cronJobInfo.setLastModifyTime(DateUtils.currentTimeSeconds());
-        Long cronId;
-        try {
-            cronId = cronJobService.saveCronJobInfo(cronJobInfo);
-        } catch (TaskExecuteAuthFailedException e) {
-            throw new PermissionDeniedException(e.getAuthResult());
+        CronJobInfoDTO result;
+        if (isUpdate) {
+            result = cronJobService.updateCronJobInfo(username, cronJobInfo);
+        } else {
+            result = cronJobService.createCronJobInfo(username, cronJobInfo);
         }
-        if (cronId > 0) {
-            esbCronInfoV3DTO = CronJobInfoDTO.toEsbCronInfoV3Response(cronJobService.getCronJobInfoById(cronId));
+        if (result.getId() > 0) {
+            esbCronInfoV3DTO =
+                CronJobInfoDTO.toEsbCronInfoV3Response(cronJobService.getCronJobInfoById(result.getId()));
             return EsbResp.buildSuccessResp(esbCronInfoV3DTO);
         } else {
             throw new InternalException(ErrorCode.UPDATE_CRON_JOB_FAILED);
@@ -347,8 +342,9 @@ public class EsbCronJobV3ResourceImpl implements EsbCronJobV3Resource {
     }
 
     @Override
-    public EsbResp<EsbCronInfoV3DTO> getCronDetailUsingPost(EsbGetCronDetailV3Request request) {
-        request.fillAppResourceScope(appScopeMappingService);
+    public EsbResp<EsbCronInfoV3DTO> getCronDetailUsingPost(String username,
+                                                            String appCode,
+                                                            EsbGetCronDetailV3Request request) {
         if (request.validate()) {
             CronJobInfoDTO cronJobInfoById = cronJobService.getCronJobInfoById(request.getAppId(), request.getId());
             return EsbResp.buildSuccessResp(CronJobInfoDTO.toEsbCronInfoV3(cronJobInfoById));
