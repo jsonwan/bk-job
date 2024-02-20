@@ -22,18 +22,36 @@
  * IN THE SOFTWARE.
  */
 
-package com.tencent.bk.job.common.mysql.config;
+package com.tencent.bk.job.api.constant;
 
-import org.jooq.DSLContext;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.context.annotation.Configuration;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 
-import javax.sql.DataSource;
+/**
+ * 定时任务状态
+ */
+public enum CronStatusEnum {
+    RUNNING(1), STOPPING(2);
 
-@Configuration(proxyBeanMethods = false)
-@ConditionalOnClass(DSLContext.class)
-@ConditionalOnBean(DataSource.class)
-public class JobMySQLAutoConfiguration {
 
+    @JsonValue
+    private final Integer status;
+
+    CronStatusEnum(Integer status) {
+        this.status = status;
+    }
+
+    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)
+    public static CronStatusEnum valOf(int cronStatus) {
+        for (CronStatusEnum status : values()) {
+            if (status.getStatus() == cronStatus) {
+                return status;
+            }
+        }
+        return null;
+    }
+
+    public Integer getStatus() {
+        return status;
+    }
 }
