@@ -278,6 +278,11 @@ public class HostServiceImpl implements HostService {
     }
 
     @Override
+    public Map<String, Integer> groupHostByOsType() {
+        return applicationHostDAO.groupHostByOsType();
+    }
+
+    @Override
     public List<List<InstanceTopologyDTO>> queryBizNodePaths(String username,
                                                              Long bizId,
                                                              List<InstanceTopologyDTO> nodeList) {
@@ -759,7 +764,8 @@ public class HostServiceImpl implements HostService {
     public Map<Long, ApplicationHostDTO> listHostsByHostIds(Collection<Long> hostIds) {
         Pair<List<Long>, List<ApplicationHostDTO>> result = listHostsByStrategy(new ArrayList<>(hostIds),
             new ListHostByHostIdsStrategy());
-        return result.getRight().stream().collect(Collectors.toMap(ApplicationHostDTO::getHostId, host -> host));
+        return result.getRight().stream().collect(
+            Collectors.toMap(ApplicationHostDTO::getHostId, host -> host, (oldValue, newValue) -> newValue));
     }
 
     /**
@@ -784,6 +790,7 @@ public class HostServiceImpl implements HostService {
     public Map<String, ApplicationHostDTO> listHostsByIps(Collection<String> cloudIps) {
         Pair<List<String>, List<ApplicationHostDTO>> result = listHostsByStrategy(new ArrayList<>(cloudIps),
             new ListHostByIpsStrategy());
-        return result.getRight().stream().collect(Collectors.toMap(ApplicationHostDTO::getCloudIp, host -> host));
+        return result.getRight().stream().collect(
+            Collectors.toMap(ApplicationHostDTO::getCloudIp, host -> host, (oldValue, newValue) -> newValue));
     }
 }
