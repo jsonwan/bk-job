@@ -174,14 +174,14 @@
   }
 
   .bk-dialog {
-    top: unset;
+    top: unset !important;
     display: inline-block;
     margin: unset;
     text-align: initial;
     vertical-align: middle;
 
     &.bk-dialog-fullscreen {
-      inset: 0;
+      inset: 0 !important;
     }
 
     &.bk-info-box {

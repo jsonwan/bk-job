@@ -174,7 +174,7 @@ public class ArtifactoryClient {
     }
 
     private String doHttpGet(String url, ArtifactoryReq reqBody, HttpHelper httpHelper) {
-        return httpHelper.request(
+        return httpHelper.requestForSuccessResp(
             HttpRequest.builder(HttpMethodEnum.GET, reqBody == null ? url : url + reqBody.toUrlParams())
                 .setHeaders(getJsonHeaders())
                 .build())
@@ -182,7 +182,7 @@ public class ArtifactoryClient {
     }
 
     private String doHttpPost(String url, ArtifactoryReq reqBody, HttpHelper httpHelper) {
-        return httpHelper.request(
+        return httpHelper.requestForSuccessResp(
             HttpRequest.builder(HttpMethodEnum.POST, url)
                 .setStringEntity(reqBody == null ? "{}" : JsonUtils.toJson(reqBody))
                 .setHeaders(getJsonHeaders())
@@ -191,7 +191,7 @@ public class ArtifactoryClient {
     }
 
     private String doHttpDelete(String url, ArtifactoryReq reqBody, HttpHelper httpHelper) {
-        return httpHelper.request(
+        return httpHelper.requestForSuccessResp(
             HttpRequest.builder(HttpMethodEnum.DELETE, reqBody == null ? url : url + reqBody.toUrlParams())
                 .setStringEntity(reqBody == null ? "{}" : JsonUtils.toJson(reqBody))
                 .setHeaders(getJsonHeaders())
@@ -433,12 +433,12 @@ public class ArtifactoryClient {
         return resp.getData();
     }
 
-    public Boolean deleteProject(String projectId) {
+    public boolean deleteProject(String projectId) {
         log.info("deleteProject:{}", projectId);
         throw new NotImplementedException("Not support feature", ErrorCode.NOT_SUPPORT_FEATURE);
     }
 
-    public Boolean deleteRepo(String projectId, String repoName, Boolean forced) {
+    public boolean deleteRepo(String projectId, String repoName, Boolean forced) {
         DeleteRepoReq req = new DeleteRepoReq();
         req.setProjectId(projectId);
         req.setRepoName(repoName);
@@ -449,7 +449,7 @@ public class ArtifactoryClient {
         return resp.getCode() == 0;
     }
 
-    public Boolean deleteNode(String projectId, String repoName, String fullPath) {
+    public boolean deleteNode(String projectId, String repoName, String fullPath) {
         DeleteNodeReq req = new DeleteNodeReq();
         req.setProjectId(projectId);
         req.setRepoName(repoName);
@@ -557,7 +557,7 @@ public class ArtifactoryClient {
             HttpMetricUtil.setHttpMetricName(CommonMetricNames.BKREPO_API_HTTP);
             HttpMetricUtil.addTagForCurrentMetric(Tag.of("api_name", "upload:" + URL_UPLOAD_GENERIC_FILE));
 
-            respStr = longHttpHelper.request(
+            respStr = longHttpHelper.requestForSuccessResp(
                 HttpRequest.builder(HttpMethodEnum.PUT, url)
                     .setHttpEntity(reqEntity)
                     .setHeaders(getUploadFileHeaders())

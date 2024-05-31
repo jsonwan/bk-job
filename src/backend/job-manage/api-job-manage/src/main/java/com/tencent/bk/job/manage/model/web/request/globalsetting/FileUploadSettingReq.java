@@ -25,8 +25,8 @@
 package com.tencent.bk.job.manage.model.web.request.globalsetting;
 
 import com.tencent.bk.job.common.validation.CheckEnum;
-import com.tencent.bk.job.manage.common.consts.globalsetting.RestrictModeEnum;
-import com.tencent.bk.job.manage.common.consts.globalsetting.StorageUnitEnum;
+import com.tencent.bk.job.manage.api.common.constants.globalsetting.RestrictModeEnum;
+import com.tencent.bk.job.manage.api.common.constants.globalsetting.StorageUnitEnum;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.AllArgsConstructor;
@@ -62,7 +62,7 @@ public class FileUploadSettingReq {
     private Integer restrictMode;
 
     @ApiModelProperty("后缀列表")
-    private List<@Pattern(regexp = "^\\.[A-Za-z0-9_-]{1,24}$",
+    private List<@Pattern(regexp = "^(\\.[A-Za-z0-9_-]{1,24})+$",
         message = "{validation.constraints.InvalidUploadFileSuffix.message}") String> suffixList;
 
 }

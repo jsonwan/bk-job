@@ -38,24 +38,37 @@ public class ScheduledTasks {
 
     private final CronJobLoadingService cronJobLoadingService;
 
+    private final DisableCronJobOfArchivedScopeTask disableCronJobOfArchivedScopeTask;
+
     @Autowired
-    public ScheduledTasks(CronJobLoadingService cronJobLoadingService) {
+    public ScheduledTasks(CronJobLoadingService cronJobLoadingService,
+                          DisableCronJobOfArchivedScopeTask disableCronJobOfArchivedScopeTask) {
         this.cronJobLoadingService = cronJobLoadingService;
+        this.disableCronJobOfArchivedScopeTask = disableCronJobOfArchivedScopeTask;
     }
 
     /**
-     * 每间隔30min更新一次定时任务数据到Quartz内存
+     * 每天早上9:30更新一次定时任务数据到Quartz内存
      */
-    @Scheduled(initialDelay = 5 * 1000, fixedDelay = 30 * 60 * 1000)
-    public void loadCronToQuartz() {
-        log.info("loadCronToQuartz");
+    @Scheduled(cron = "0 30 9 * * *")
+    public void loadCronToQuartzPeriodically() {
+        log.info("loadCronToQuartzPeriodically");
+        cronJobLoadingService.loadAllCronJob();
+    }
+
+    /**
+     * 每上午10点把已归档业务(集)的定时任务禁用
+     */
+    @Scheduled(cron = "0 0 10 * * ?")
+    public void disableCronJobOfArchivedScopeTask() {
+        log.info(Thread.currentThread().getId() + ":disableCronJobOfArchivedScopeTask start");
         long start = System.currentTimeMillis();
         try {
-            cronJobLoadingService.loadAllCronJob();
+            disableCronJobOfArchivedScopeTask.execute();
         } catch (Exception e) {
-            log.error("loadCronToQuartz fail", e);
+            log.error("disableCronJobOfArchivedScopeTask fail", e);
         } finally {
-            log.info("loadCronToQuartz end, duration={}ms", System.currentTimeMillis() - start);
+            log.info("disableCronJobOfArchivedScopeTask end, duration={}ms", System.currentTimeMillis() - start);
         }
     }
 }
