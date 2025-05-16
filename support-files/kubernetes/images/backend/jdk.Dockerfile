@@ -1,7 +1,7 @@
 FROM bkjob/os:0.0.2
 
 LABEL maintainer="Tencent BlueKing Job"
-LABEL dockerfile.version="3.11.0"
+LABEL dockerfile.version="3.13.0"
 
 ## 安装JDK
 RUN mkdir -p /data && \
@@ -20,4 +20,4 @@ RUN mkdir -p /data/tools && \
     yum install -y unzip && \
     unzip arthas-bin.zip arthas-boot.jar && \
     rm -rf arthas-bin* && \
-    echo 'alias arthas="java -jar /data/tools/arthas-boot.jar"' >> ~/.bashrc
+    echo 'alias arthas="JAVA_TOOL_OPTIONS=;java -jar /data/tools/arthas-boot.jar"' >> ~/.bashrc
