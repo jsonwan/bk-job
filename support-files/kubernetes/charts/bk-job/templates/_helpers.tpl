@@ -18,6 +18,15 @@ Create the name of the service account for job
 {{- end }}
 
 {{/*
+Return the common labels of the k8s resources for job
+*/}}
+{{- define "job.commonLabels" -}}
+{{- if .Values.commonLabels }}
+{{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) }}
+{{- end }}
+{{- end -}}
+
+{{/*
 Return the label key of job image tag
 */}}
 {{- define "job.labelKeys.imageTag" -}}

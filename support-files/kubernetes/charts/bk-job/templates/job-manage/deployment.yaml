@@ -9,9 +9,7 @@ metadata:
     app.kubernetes.io/component: "job-manage"
     {{ include "job.labelKeys.jobScope" . }}: {{ include "job.labelValues.jobScope.backend" . }}
     {{ include "job.labelKeys.imageTag" . }}: {{ .Values.manageConfig.image.tag | quote }}
-    {{- if .Values.commonLabels }}
-    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
-    {{- end }}
+    {{- include "job.commonLabels" . | nindent 4 }}
   annotations:
   {{- if .Values.commonAnnotations }}
   {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
@@ -27,6 +25,7 @@ spec:
   template:
     metadata:
       labels:
+        {{- include "job.commonLabels" . | nindent 8 }}
         {{- include "common.labels.matchLabels" . | nindent 8 }}
         app.kubernetes.io/component: "job-manage"
         {{ include "job.labelKeys.jobScope" . }}: {{ include "job.labelValues.jobScope.backend" . }}
