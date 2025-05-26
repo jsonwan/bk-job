@@ -1,4 +1,24 @@
 {{/*
+Return the job-backup Service enabled
+判断条件：
+1.job-backup模块开启
+2.标准模式才部署Service
+3.全链路灰度环境下，基础泳道才部署Service
+*/}}
+{{- define "job.backup.service.enabled" -}}
+{{- if (not .Values.backupConfig.enabled) -}}
+{{- false -}}
+{{- else if (ne .Values.deploy.mode "standard") -}}
+{{- false -}}
+{{- else if (ne .Values.laneType "base") -}}
+{{- false -}}
+{{- else -}}
+{{- true -}}
+{{- end -}}
+{{- end -}}
+
+
+{{/*
 Return the job-backup archive MariaDB jdbc connection url base properties (without ssl config)
 */}}
 {{- define "job.backup.archive.mariadb.base.connection.properties" -}}

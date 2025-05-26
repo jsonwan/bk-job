@@ -29,6 +29,12 @@ cluster:
   ## 集群名称
   name: default
 
+## 全链路灰度部署相关配置
+# 泳道类型：base-基础泳道（全量部署所有K8s资源），feature-特性泳道（部署除Service外的所有K8s资源）
+laneType: "base"
+# 泳道名称：对应的Helm Release名称，基础泳道建议使用bk-job，特性泳道建议使用bk-job-xxx
+laneName: "bk-job"
+
 ## @section Common parameters
 
 ## @param nameOverride String to partially override common.names.fullname

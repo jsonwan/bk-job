@@ -1,4 +1,4 @@
-{{- if eq .Values.deploy.mode "lite" }}
+{{- if eq (include "job.assemble.service.enabled" .) "true" }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -20,6 +20,7 @@ spec:
       port: {{ .Values.assembleConfig.service.port }}
       targetPort: {{ .Values.assembleConfig.containerPort }}
       protocol: TCP
-  selector: {{- include "common.labels.matchLabels" . | nindent 4 }}
+  selector:
+    app.kubernetes.io/name: {{ include "common.names.name" . }}
     app.kubernetes.io/component: "job-assemble"
 {{- end }}

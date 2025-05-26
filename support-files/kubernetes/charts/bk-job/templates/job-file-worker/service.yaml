@@ -1,4 +1,4 @@
-{{- if .Values.fileWorkerConfig.enabled }}
+{{- if eq (include "job.fileWorker.service.enabled" .) "true" }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -21,6 +21,7 @@ spec:
       targetPort: {{ .Values.fileWorkerConfig.containerPort }}
       protocol: TCP
   clusterIP: None
-  selector: {{- include "common.labels.matchLabels" . | nindent 4 }}
+  selector:
+    app.kubernetes.io/name: {{ include "common.names.name" . }}
     app.kubernetes.io/component: "job-file-worker"
 {{- end }}

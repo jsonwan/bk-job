@@ -1,4 +1,4 @@
-{{- if and .Values.manageConfig.enabled (eq .Values.deploy.mode "standard") }}
+{{- if eq (include "job.manage.service.enabled" .) "true" }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -20,6 +20,7 @@ spec:
       port: {{ .Values.manageConfig.service.port }}
       targetPort: {{ .Values.manageConfig.containerPort }}
       protocol: TCP
-  selector: {{- include "common.labels.matchLabels" . | nindent 4 }}
+  selector:
+    app.kubernetes.io/name: {{ include "common.names.name" . }}
     app.kubernetes.io/component: "job-manage"
 {{- end }}
