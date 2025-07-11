@@ -72,7 +72,8 @@ public class IpUtilsTest {
         assertThat(IpUtils.checkIpv6("::192.168.0.1")).isTrue();
         assertThat(IpUtils.checkIpv6("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")).isTrue();
         assertThat(IpUtils.checkIpv6("0ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")).isFalse();
-        assertThat(IpUtils.checkIpv6("::192.168.0.1/96")).isFalse();
+        // commons-validator-1.10.0中认为该地址为合法IPv6地址
+        assertThat(IpUtils.checkIpv6("::192.168.0.1/96")).isTrue();
         assertThat(IpUtils.checkIpv6("ff:ff:ff:ff:ff:ff:ff:fg")).isFalse();
         assertThat(IpUtils.checkIpv6("1::1::1")).isFalse();
         assertThat(IpUtils.checkIpv6("1::1::123")).isFalse();
