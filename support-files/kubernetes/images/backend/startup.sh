@@ -47,6 +47,7 @@ if [[ "$BK_JOB_FILE_WORKER_WORKSPACE_DIR" != "" ]];then
     chmod 666 "$BK_JOB_FILE_WORKER_WORKSPACE_DIR"
 fi
 
+BK_JOB_EXEC_DIR="/data/job/exec"
 # 创建JVM相关文件存储空间
 JVM_FILE_DIR="$BK_JOB_STORAGE_BASE_DIR/jvm"
 if [[ ! -d "$JVM_FILE_DIR" ]];then
@@ -55,7 +56,17 @@ if [[ ! -d "$JVM_FILE_DIR" ]];then
     chmod 666 "$JVM_FILE_DIR"
 fi
 
+echo "TINGYUN_AGENT_ENABLED=${TINGYUN_AGENT_ENABLED}"
+# 判断是否启用探针
+if [ "${TINGYUN_AGENT_ENABLED}" == "true" ];then
+    # 加载听云相关脚本
+    source ${BK_JOB_EXEC_DIR}/tingyun.sh
+else
+    echo "听云探针未启用，可通过values配置项开启"
+fi
+
 exec java -server \
+     ${JAVA_OPTS} \
      -Dfile.encoding=UTF-8 \
      -Djob.log.dir=$BK_JOB_LOG_BASE_DIR \
      -Xloggc:$BK_JOB_LOG_DIR/gc.log \
@@ -70,5 +81,5 @@ exec java -server \
      -XX:ErrorFile=${JVM_FILE_DIR}/${BK_JOB_POD_NAME}_${CONTAINER_ID}_jvm_error.log \
      -Dspring.profiles.active=$BK_JOB_PROFILE \
      $BK_JOB_JVM_OPTION \
-     -jar /data/job/exec/$BK_JOB_JAR \
+     -jar ${BK_JOB_EXEC_DIR}/$BK_JOB_JAR \
      "$@"

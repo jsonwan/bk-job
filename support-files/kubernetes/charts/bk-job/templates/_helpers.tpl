@@ -823,6 +823,22 @@ Return the Job Deploy Env Content
   value: {{ .Release.Name }}
 {{- end -}}
 
+{{/*
+Return the Job Tingyun Env Content
+*/}}
+{{- define "job.tingyun.env" -}}
+- name: TINGYUN_AGENT_ENABLED
+  value: {{ .Values.tingyun.enabled | quote }}
+- name: TINGYUN_AGENT_DIR
+  value: {{ .Values.tingyun.agentDir }}
+- name: TINGYUN_DOWNLOAD_CMD
+  value: {{ .Values.tingyun.agentDownloadCmd | quote }}
+- name: TINGYUN_COLLECTOR_ADDRESSES
+  value: {{ .Values.tingyun.collectorAddresses | quote }}
+- name: TINGYUN_DEFAULT_BUSINESS_SYSTEM
+  value: {{ .Values.tingyun.defaultBusinessSystem }}
+{{- end -}}
+
 
 {{/*
 Return environment variables for a given micro service
@@ -844,6 +860,7 @@ Return the Job Common Env Content
 {{ include "job.storage.env" . }}
 {{ include "job.config.env" . }}
 {{ include "job.deploy.env" . }}
+{{ include "job.tingyun.env" . }}
 {{- end -}}
 
 {{/*
@@ -1063,5 +1080,34 @@ Return the Redis certs volume
 - name: redis-certs
   secret:
     secretName: {{ .Values.externalRedis.tls.existingSecret }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the tingyun secret name
+*/}}
+{{- define "job.tingyun.secretName" -}}
+{{ printf "%s-%s" (include "job.fullname" .) "tingyun" }}
+{{- end -}}
+
+{{/*
+Return the Tingyun secert volumeMount
+*/}}
+{{- define "job.tingyun.secretVolumeMount" -}}
+{{- if and (.Values.tingyun.enabled) (.Values.tingyun.licenseKey) -}}
+- name: tingyun-secret
+  mountPath: /etc/secrets/tingyun
+  readOnly: true
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the Tingyun secert volume
+*/}}
+{{- define "job.tingyun.secretVolume" -}}
+{{- if and (.Values.tingyun.enabled) (.Values.tingyun.licenseKey) -}}
+- name: tingyun-secret
+  secret:
+    secretName: {{ include "job.tingyun.secretName" . }}
 {{- end -}}
 {{- end -}}

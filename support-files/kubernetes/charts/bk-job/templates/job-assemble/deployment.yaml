@@ -141,6 +141,7 @@ spec:
             {{- include "job.mongodb.certsVolumeMount" . | nindent 12 }}
             {{- include "job.rabbitmq.certsVolumeMount" . | nindent 12 }}
             {{- include "job.redis.certsVolumeMount" . | nindent 12 }}
+            {{- include "job.tingyun.secretVolumeMount" . | nindent 12 }}
       terminationGracePeriodSeconds: 120
       volumes:
         {{- if .Values.crontabConfig.database.host }}
@@ -186,4 +187,5 @@ spec:
         {{- include "job.mongodb.certsVolume" . | nindent 8 }}
         {{- include "job.rabbitmq.certsVolume" . | nindent 8 }}
         {{- include "job.redis.certsVolume" . | nindent 8 }}
+        {{- include "job.tingyun.secretVolume" . | nindent 8 }}
 {{- end }}

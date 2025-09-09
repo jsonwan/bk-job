@@ -230,7 +230,7 @@ build_backend_modules () {
     for MODULE in ${MODULES[@]}; do
         rm -rf tmp/backend/*
         cp $BACKEND_DIR/release/$MODULE-$VERSION.jar tmp/backend/$MODULE.jar
-        cp backend/startup.sh backend/tini tmp/backend/
+        cp backend/startup.sh backend/tingyun.sh backend/tini tmp/backend/
         docker build -f backend/backend.Dockerfile -t $REGISTRY/$MODULE:$VERSION tmp/backend --network=host
         if [[ $PUSH -eq 1 ]] ; then
             docker push $REGISTRY/$MODULE:$VERSION

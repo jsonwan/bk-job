@@ -97,10 +97,12 @@ spec:
               mountPath: {{ .Values.persistence.localStorage.path }}
             - name: distribute-volume
               mountPath: {{ .Values.fileDistribute.hostPath }}
+            {{- include "job.tingyun.secretVolumeMount" . | nindent 12 }}
       volumes:
         - name: job-storage
           persistentVolumeClaim:
             claimName: {{ include "job.storage.pvc.name" . }}
         - name: distribute-volume
           {{- include "job.distribute.volume.name" . |nindent 10 }}
+        {{- include "job.tingyun.secretVolume" . | nindent 8 }}
 {{- end }}
