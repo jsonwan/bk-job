@@ -2094,9 +2094,9 @@ healthCheck:
 tingyun:
   # 是否启用听云：true/false
   enabled: false
-  # 探针下载路径
-  agentDir: /data/tools/tingyun-agent
-  # 探针下载命令（将一个zip包下载至当前目录）
+  # 是否下载新的探针，默认不下载，使用内置的探针，版本为：3_7_0_2
+  downloadNewAgent: false
+  # 探针下载命令（将一个zip包下载至当前目录），若不下载新的探针则无需填写
   agentDownloadCmd: "wget -O tingyun-agent-java-xxx.zip --header=\"xxx\" https://xxx/agent/package/download/9"
   # License Key，与听云账号关联，探针采集到的数据，会上传到该License Key绑定的账号下
   licenseKey: ""

@@ -6,10 +6,8 @@ currentDir=$(pwd)
 trap "cd ${currentDir}"  EXIT TERM
 
 # 从Pod传入的环境变量
-# 探针在容器内的安装路径
-echo "TINGYUN_AGENT_DIR=${TINGYUN_AGENT_DIR}"
-# 探针下载命令
-echo "TINGYUN_DOWNLOAD_CMD=${TINGYUN_DOWNLOAD_CMD}"
+# 是否下载新探针
+echo "TINGYUN_DOWNLOAD_NEW_AGENT=${TINGYUN_DOWNLOAD_NEW_AGENT}"
 # collector.addresses
 echo "TINGYUN_COLLECTOR_ADDRESSES=${TINGYUN_COLLECTOR_ADDRESSES}"
 # 业务系统
@@ -19,14 +17,32 @@ echo "TINGYUN_DEFAULT_BUSINESS_SYSTEM=${TINGYUN_DEFAULT_BUSINESS_SYSTEM}"
 # license_key
 TINGYUN_LICENSE_KEY=$(cat /etc/secrets/tingyun/license_key)
 
-# 下载探针
-function downLoadAndConfigAgent() {
-    if [ ! -d ${TINGYUN_AGENT_DIR} ];then
-        mkdir -p ${TINGYUN_AGENT_DIR}
+# 探针在容器内的安装路径
+tingyunAgentDir="/data/tools/tingyun-agent"
+# 准备探针（使用本地探针/下载新探针）
+function prepareAgent() {
+    if [ ! -d ${tingyunAgentDir} ];then
+        mkdir -p ${tingyunAgentDir}
     fi
-    cd ${TINGYUN_AGENT_DIR}
-    # 下载探针压缩包并解压
-    eval ${TINGYUN_DOWNLOAD_CMD}
+    cd ${tingyunAgentDir}
+    if [[ "${TINGYUN_DOWNLOAD_NEW_AGENT}" == "true" ]];then
+        # 删除本地探针
+        rm -f *
+        # 探针下载命令
+        TINGYUN_DOWNLOAD_CMD=$(cat /etc/secrets/tingyun/agent_download_cmd)
+        # 下载探针压缩包
+        eval ${TINGYUN_DOWNLOAD_CMD}
+    else
+        # 使用本地探针
+        echo "使用本地探针："
+        ls -hl
+    fi
+}
+
+# 准备并配置探针
+function prepareAndConfigAgent() {
+    prepareAgent
+    cd ${tingyunAgentDir}
     standardZipFileName="tingyun-agent-java.zip"
     agentZipFileName=$(ls -1|head -n1)
     mv ${agentZipFileName} ${standardZipFileName}
@@ -37,14 +53,14 @@ function downLoadAndConfigAgent() {
     # 暂时无需修改配置项
 }
 
-downLoadAndConfigAgent
+prepareAndConfigAgent
 if [ $? -eq 0 ];then
     export JAVA_OPTS="$JAVA_OPTS \
            -Dtingyun.app_name=${BK_JOB_APP_NAME} \
            -Dtingyun.license_key=${TINGYUN_LICENSE_KEY} \
            -Dtingyun.collector.addresses=${TINGYUN_COLLECTOR_ADDRESSES} \
            -Dtingyun.default_business_system=${TINGYUN_DEFAULT_BUSINESS_SYSTEM} \
-           -javaagent:${TINGYUN_AGENT_DIR}/tingyun/tingyun-agent-java.jar"
+           -javaagent:${tingyunAgentDir}/tingyun/tingyun-agent-java.jar"
     echo "将听云探针启动所需的环境变量打入JAVA_OPTS中"
     echo "JAVA_OPTS 更新为：$JAVA_OPTS"
     echo "启动服务及听云探针"

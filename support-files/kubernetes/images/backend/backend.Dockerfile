@@ -5,7 +5,10 @@ LABEL dockerfile.version="3.11.0"
 
 ENV BK_JOB_HOME=/data/job/exec
 
-COPY ./ /data/job/exec/
+COPY ./tingyun-agent /data/tools/tingyun-agent/
+COPY ./*.sh /data/job/exec/
+COPY ./*.jar /data/job/exec/
+COPY ./tini /data/job/exec/
 RUN ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo 'Asia/Shanghai' > /etc/timezone && \
     chmod +x /data/job/exec/startup.sh && \

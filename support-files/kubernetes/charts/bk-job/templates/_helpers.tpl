@@ -829,10 +829,8 @@ Return the Job Tingyun Env Content
 {{- define "job.tingyun.env" -}}
 - name: TINGYUN_AGENT_ENABLED
   value: {{ .Values.tingyun.enabled | quote }}
-- name: TINGYUN_AGENT_DIR
-  value: {{ .Values.tingyun.agentDir }}
-- name: TINGYUN_DOWNLOAD_CMD
-  value: {{ .Values.tingyun.agentDownloadCmd | quote }}
+- name: TINGYUN_DOWNLOAD_NEW_AGENT
+  value: {{ .Values.tingyun.downloadNewAgent | quote }}
 - name: TINGYUN_COLLECTOR_ADDRESSES
   value: {{ .Values.tingyun.collectorAddresses | quote }}
 - name: TINGYUN_DEFAULT_BUSINESS_SYSTEM
