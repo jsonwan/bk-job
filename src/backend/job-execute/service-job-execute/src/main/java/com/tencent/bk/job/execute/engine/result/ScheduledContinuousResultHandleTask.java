@@ -134,7 +134,6 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
             }
             // 异步线程关联关键1
             this.token = action.getToken();
-            log.info("Set token: {}", action.getToken());
         } catch (Throwable t) {
             log.warn("Fail to get token", t);
         }
@@ -171,8 +170,7 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
         }
         try {
             // 异步线程关联关键3
-            Boolean result = token.linkAndExpire();
-            log.info("token.linkAndExpire: token={}, result={}", token, result);
+            token.linkAndExpire();
             token = null;
         } catch (Throwable t) {
             log.warn("Fail to link token", t);
