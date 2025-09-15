@@ -179,6 +179,7 @@ ext {
     set('tomcat.version', "9.0.96")
     // Fix CVE-2022-41854 CVE-2022-38752 CVE-2022-38751 CVE-2022-38749 CVE-2022-25857 CVE-2022-1471 1.29->1.33
     set('snakeyaml.version', "1.33")
+    set('tingyunAgentApiVersion', "3.7.0")
 }
 
 group "com.tencent.bk.job"
@@ -385,6 +386,8 @@ subprojects {
             dependency "com.squareup.okhttp3:okhttp:$okHttpVersion"
             dependency "com.rabbitmq:amqp-client:$amqpClientVersion"
             dependency "org.eclipse.jgit:org.eclipse.jgit:$jgitVersion"
+            // https://mvnrepository.com/artifact/com.tingyun/tingyun-agent-api
+            dependency "com.tingyun:tingyun-agent-api:$tingyunAgentApiVersion"
         }
     }
     dependencies {

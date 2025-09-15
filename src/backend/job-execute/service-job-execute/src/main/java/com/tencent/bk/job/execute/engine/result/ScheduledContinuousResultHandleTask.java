@@ -30,6 +30,10 @@ import com.tencent.bk.job.execute.engine.quota.limit.RunningJobKeepaliveManager;
 import com.tencent.bk.job.execute.engine.result.ha.ResultHandleLimiter;
 import com.tencent.bk.job.execute.engine.result.ha.ResultHandleTaskKeepaliveManager;
 import com.tencent.bk.job.execute.monitor.ExecuteMetricNames;
+import com.tingyun.api.agent.Action;
+import com.tingyun.api.agent.Tingyun;
+import com.tingyun.api.agent.Token;
+import com.tingyun.api.agent.Trace;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.sleuth.Span;
@@ -50,6 +54,9 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
      * 日志调用链tracer
      */
     private final Tracer tracer;
+
+    //用于听云Trace数据异步关联
+    private Token token;
     /**
      * 任务采样器
      */
@@ -112,6 +119,24 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
         this.resultHandleLimiter = resultHandleLimiter;
         this.runningJobKeepaliveManager = runningJobKeepaliveManager;
         this.jobExecuteContext = jobExecuteContext;
+        tryToSetToken();
+    }
+
+    /**
+     * 尝试获取并保存听云Trace Token
+     */
+    private void tryToSetToken() {
+        try {
+            Action action = Tingyun.getAgent().getAction();
+            if (action == null) {
+                log.debug("action is null");
+                return;
+            }
+            // 异步线程关联关键1
+            this.token = action.getToken();
+        } catch (Throwable t) {
+            log.warn("Fail to get token", t);
+        }
     }
 
     private Span getChildSpan() {
@@ -120,6 +145,7 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
 
     @Override
     public void execute() {
+        tryToLinkToken();
         Span span = getChildSpan();
         try (Tracer.SpanInScope ignored = this.tracer.withSpan(span.start())) {
             JobExecuteContextThreadLocalRepo.set(this.jobExecuteContext);
@@ -130,6 +156,24 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
         } finally {
             JobExecuteContextThreadLocalRepo.unset();
             span.end();
+        }
+    }
+
+    /**
+     * 尝试链接听云Token至消费线程
+     */
+    @Trace(async = true) //异步线程关联关键2
+    private void tryToLinkToken() {
+        if (token == null) {
+            log.debug("token is null");
+            return;
+        }
+        try {
+            // 异步线程关联关键3
+            token.linkAndExpire();
+            token = null;
+        } catch (Throwable t) {
+            log.warn("Fail to link token", t);
         }
     }
 
