@@ -134,6 +134,7 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
             }
             // 异步线程关联关键1
             this.token = action.getToken();
+            log.info("Set token: {}", action.getToken());
         } catch (Throwable t) {
             log.warn("Fail to get token", t);
         }
@@ -144,6 +145,7 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
     }
 
     @Override
+    @Trace(async = true) //异步线程关联关键2
     public void execute() {
         tryToLinkToken();
         Span span = getChildSpan();
@@ -162,7 +164,6 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
     /**
      * 尝试链接听云Token至消费线程
      */
-    @Trace(async = true) //异步线程关联关键2
     private void tryToLinkToken() {
         if (token == null) {
             log.debug("token is null");
@@ -170,7 +171,8 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
         }
         try {
             // 异步线程关联关键3
-            token.linkAndExpire();
+            Boolean result = token.linkAndExpire();
+            log.info("token.linkAndExpire: token={}, result={}", token, result);
             token = null;
         } catch (Throwable t) {
             log.warn("Fail to link token", t);
