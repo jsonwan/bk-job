@@ -32,6 +32,9 @@ import com.tencent.bk.job.execute.engine.quota.limit.RunningJobKeepaliveManager;
 import com.tencent.bk.job.execute.engine.result.ha.ResultHandleLimiter;
 import com.tencent.bk.job.execute.engine.result.ha.ResultHandleTaskKeepaliveManager;
 import com.tencent.bk.job.execute.monitor.metrics.ExecuteMonitor;
+import com.tingyun.api.agent.Tingyun;
+import com.tingyun.api.agent.TracedMethod;
+import com.tingyun.api.agent.trace.RPCSegmentParameters;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -185,13 +188,40 @@ public class ResultHandleManager implements SmartLifecycle {
             resultHandleTaskKeepaliveManager.addRunningTaskKeepaliveInfo(task.getTaskId());
         }
         runningJobKeepaliveManager.addKeepaliveTask(task.getTaskContext().getJobInstanceId());
-        this.tasksQueue.add(scheduleTask);
+        addTaskToQueue(scheduleTask);
         if (task instanceof ScriptResultHandleTask) {
             ScriptResultHandleTask scriptResultHandleTask = (ScriptResultHandleTask) task;
             resultHandleTaskSampler.incrementScriptTask(scriptResultHandleTask.getAppId());
         } else if (task instanceof FileResultHandleTask) {
             FileResultHandleTask fileResultHandleTask = (FileResultHandleTask) task;
             resultHandleTaskSampler.incrementFileTask(fileResultHandleTask.getAppId());
+        }
+    }
+
+    private void addTaskToQueue(ScheduledContinuousResultHandleTask scheduleTask) {
+        tryToInsertTraceData(scheduleTask);
+        this.tasksQueue.add(scheduleTask);
+    }
+
+    /**
+     * 尝试插入trace数据
+     *
+     * @param scheduleTask 调度任务
+     */
+    private void tryToInsertTraceData(ScheduledContinuousResultHandleTask scheduleTask) {
+        try {
+            TracedMethod tracedMethod = Tingyun.getAgent().getTracedMethod();
+            if (tracedMethod != null && scheduleTask != null) {
+                String tingyunMetaData = Tingyun.getAgent().getAction().getRequestMetadata();
+                scheduleTask.setTingyunTraceData(tingyunMetaData);
+                RPCSegmentParameters parameters = RPCSegmentParameters.vendor("DelayQueue")
+                    .protocol("queue")
+                    .instance("local", 0)
+                    .path("/").operator("").build();
+                tracedMethod.reportAs(parameters);
+            }
+        } catch (Exception e) {
+            log.warn("tryToInsertTraceData error", e);
         }
     }
 

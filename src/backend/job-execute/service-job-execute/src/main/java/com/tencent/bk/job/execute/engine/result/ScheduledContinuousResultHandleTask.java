@@ -30,12 +30,13 @@ import com.tencent.bk.job.execute.engine.quota.limit.RunningJobKeepaliveManager;
 import com.tencent.bk.job.execute.engine.result.ha.ResultHandleLimiter;
 import com.tencent.bk.job.execute.engine.result.ha.ResultHandleTaskKeepaliveManager;
 import com.tencent.bk.job.execute.monitor.ExecuteMetricNames;
-import com.tingyun.api.agent.Action;
+import com.tingyun.api.agent.ActionNamePriority;
 import com.tingyun.api.agent.Tingyun;
-import com.tingyun.api.agent.Token;
 import com.tingyun.api.agent.Trace;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.cloud.sleuth.Span;
 import org.springframework.cloud.sleuth.Tracer;
 
@@ -55,8 +56,6 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
      */
     private final Tracer tracer;
 
-    //用于听云Trace数据异步关联
-    private Token token;
     /**
      * 任务采样器
      */
@@ -87,6 +86,12 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
      */
     @Getter
     private final JobExecuteContext jobExecuteContext;
+    /**
+     * 听云trace数据
+     */
+    @Getter
+    @Setter
+    private String tingyunTraceData;
 
     /**
      * ScheduledContinuousQueuedTask Constructor
@@ -119,24 +124,6 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
         this.resultHandleLimiter = resultHandleLimiter;
         this.runningJobKeepaliveManager = runningJobKeepaliveManager;
         this.jobExecuteContext = jobExecuteContext;
-        tryToSetToken();
-    }
-
-    /**
-     * 尝试获取并保存听云Trace Token
-     */
-    private void tryToSetToken() {
-        try {
-            Action action = Tingyun.getAgent().getAction();
-            if (action == null) {
-                log.debug("action is null");
-                return;
-            }
-            // 异步线程关联关键1
-            this.token = action.getToken();
-        } catch (Throwable t) {
-            log.warn("Fail to get token", t);
-        }
     }
 
     private Span getChildSpan() {
@@ -144,9 +131,9 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
     }
 
     @Override
-    @Trace(async = true) //异步线程关联关键2
+    @Trace(dispatcher = true, actionType = "background") //异步线程关联关键2
     public void execute() {
-        tryToLinkToken();
+        tryToLinkTrace();
         Span span = getChildSpan();
         try (Tracer.SpanInScope ignored = this.tracer.withSpan(span.start())) {
             JobExecuteContextThreadLocalRepo.set(this.jobExecuteContext);
@@ -161,19 +148,27 @@ public class ScheduledContinuousResultHandleTask extends DelayedTask {
     }
 
     /**
-     * 尝试链接听云Token至消费线程
+     * 尝试链接听云Trace数据至消费线程
      */
-    private void tryToLinkToken() {
-        if (token == null) {
-            log.debug("token is null");
+    private void tryToLinkTrace() {
+        if (StringUtils.isBlank(tingyunTraceData)) {
+            log.info("tingyunTraceData is blank");
             return;
         }
         try {
             // 异步线程关联关键3
-            token.linkAndExpire();
-            token = null;
+            log.info("tingyunTraceData={}", tingyunTraceData);
+            Tingyun.getAgent().getAction().processRequestMetadata(tingyunTraceData);
+            Tingyun.getAgent().getAction().convertToWebAction();
+            boolean actionNameSetResult = Tingyun.getAgent().getAction().setActionName(
+                ActionNamePriority.CUSTOM_HIGH,
+                true,
+                "DelayQueue",
+                "DelayTask"
+            );
+            log.info("actionNameSetResult={}", actionNameSetResult);
         } catch (Throwable t) {
-            log.warn("Fail to link token", t);
+            log.warn("Fail to link trace", t);
         }
     }
 
