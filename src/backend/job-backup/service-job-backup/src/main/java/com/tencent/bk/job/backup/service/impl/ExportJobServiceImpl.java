@@ -67,6 +67,11 @@ public class ExportJobServiceImpl implements ExportJobService {
     }
 
     @Override
+    public ExportJobInfoDTO getExportInfoByCreator(Long appId, String jobId, String username) {
+        return exportJobDAO.getExportJobByIdAndCreator(appId, jobId, username);
+    }
+
+    @Override
     public List<ExportJobInfoDTO> getCurrentJobByUser(String username, Long appId) {
         return exportJobDAO.getExportJobByUser(appId, username);
     }

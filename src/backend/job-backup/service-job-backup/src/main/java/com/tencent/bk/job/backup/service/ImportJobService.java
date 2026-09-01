@@ -54,6 +54,16 @@ public interface ImportJobService {
     ImportJobInfoDTO getImportInfoById(Long appId, String jobId);
 
     /**
+     * 按 ID 与创建人查询导入任务信息，用于防止用户越权访问他人的导入任务
+     *
+     * @param appId    业务 ID
+     * @param jobId    任务 ID
+     * @param username 用户名
+     * @return 导入任务信息，不存在或非本人创建时返回 null
+     */
+    ImportJobInfoDTO getImportInfoByCreator(Long appId, String jobId, String username);
+
+    /**
      * 按用户拉取正在导入的作业列表
      *
      * @param username 用户名

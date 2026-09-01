@@ -160,7 +160,7 @@ public class WebBackupResourceImpl implements WebBackupResource {
                                                 String scopeId,
                                                 String jobId) {
         Long appId = appResourceScope.getAppId();
-        ExportJobInfoDTO exportInfo = exportJobService.getExportInfo(appId, jobId);
+        ExportJobInfoDTO exportInfo = exportJobService.getExportInfoByCreator(appId, jobId, username);
         if (exportInfo != null) {
             List<LogEntityDTO> exportLog = logService.getExportLogById(appId, jobId);
             ExportInfoVO exportInfoVO = ExportJobInfoDTO.toVO(exportInfo);
@@ -220,7 +220,8 @@ public class WebBackupResourceImpl implements WebBackupResource {
                                                                String scopeType,
                                                                String scopeId,
                                                                String jobId) {
-        ExportJobInfoDTO exportInfo = exportJobService.getExportInfo(appResourceScope.getAppId(), jobId);
+        ExportJobInfoDTO exportInfo =
+            exportJobService.getExportInfoByCreator(appResourceScope.getAppId(), jobId, username);
         if (exportInfo != null) {
             if (BackupJobStatusEnum.ALL_SUCCESS.equals(exportInfo.getStatus())) {
                 Pair<Long, StreamingResponseBody> fileInfoPair;
@@ -259,7 +260,8 @@ public class WebBackupResourceImpl implements WebBackupResource {
                                             String scopeType,
                                             String scopeId,
                                             String jobId) {
-        ExportJobInfoDTO exportInfo = exportJobService.getExportInfo(appResourceScope.getAppId(), jobId);
+        ExportJobInfoDTO exportInfo =
+            exportJobService.getExportInfoByCreator(appResourceScope.getAppId(), jobId, username);
         if (exportInfo != null) {
             if (BackupJobStatusEnum.ALL_SUCCESS.equals(exportInfo.getStatus())) {
                 exportInfo.setStatus(BackupJobStatusEnum.FINISHED);
@@ -278,7 +280,8 @@ public class WebBackupResourceImpl implements WebBackupResource {
                                          String scopeType,
                                          String scopeId,
                                          String jobId) {
-        ExportJobInfoDTO exportInfo = exportJobService.getExportInfo(appResourceScope.getAppId(), jobId);
+        ExportJobInfoDTO exportInfo =
+            exportJobService.getExportInfoByCreator(appResourceScope.getAppId(), jobId, username);
         if (exportInfo != null) {
             exportInfo.setStatus(BackupJobStatusEnum.CANCEL);
             exportInfo.setFileName(null);
@@ -397,7 +400,7 @@ public class WebBackupResourceImpl implements WebBackupResource {
                                                 String scopeId,
                                                 String jobId) {
         Long appId = appResourceScope.getAppId();
-        ImportJobInfoDTO importInfo = importJobService.getImportInfoById(appId, jobId);
+        ImportJobInfoDTO importInfo = importJobService.getImportInfoByCreator(appId, jobId, username);
         if (importInfo != null) {
             List<LogEntityDTO> importLog = logService.getImportLogById(appId, jobId);
             ImportInfoVO importInfoVO = ImportJobInfoDTO.toVO(importInfo);

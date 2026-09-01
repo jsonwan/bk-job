@@ -116,15 +116,20 @@ public class ImportJobServiceImpl implements ImportJobService {
     }
 
     @Override
+    public ImportJobInfoDTO getImportInfoByCreator(Long appId, String jobId, String username) {
+        return importJobDAO.getImportJobByIdAndCreator(appId, jobId, username);
+    }
+
+    @Override
     public List<ImportJobInfoDTO> getCurrentJobByUser(String username, Long appId) {
         return importJobDAO.getImportJobByUser(appId, username);
     }
 
     @Override
     public Boolean startImport(ImportJobInfoDTO importJobInfo) {
-        ImportJobInfoDTO importJobInfoFromDb =
-            importJobDAO.getImportJobById(importJobInfo.getAppId(), importJobInfo.getId());
-        if (importJobInfoFromDb.getCreator().equals(importJobInfo.getCreator())
+        ImportJobInfoDTO importJobInfoFromDb = importJobDAO.getImportJobByIdAndCreator(
+            importJobInfo.getAppId(), importJobInfo.getId(), importJobInfo.getCreator());
+        if (importJobInfoFromDb != null
             && BackupJobStatusEnum.PARSE_SUCCESS == importJobInfoFromDb.getStatus()) {
             importJobInfo.setStatus(BackupJobStatusEnum.SUBMIT);
             Boolean startResult = importJobDAO.updateImportJobById(importJobInfo);
@@ -275,7 +280,10 @@ public class ImportJobServiceImpl implements ImportJobService {
 
     @Override
     public Boolean checkPassword(String username, Long appId, String jobId, String password) {
-        ImportJobInfoDTO importInfo = importJobDAO.getImportJobById(appId, jobId);
+        ImportJobInfoDTO importInfo = importJobDAO.getImportJobByIdAndCreator(appId, jobId, username);
+        if (importInfo == null) {
+            return false;
+        }
         if (BackupJobStatusEnum.NEED_PASSWORD == importInfo.getStatus()
             || BackupJobStatusEnum.WRONG_PASSWORD == importInfo.getStatus()) {
             String fileName = importInfo.getFileName();

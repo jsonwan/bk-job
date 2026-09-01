@@ -50,6 +50,16 @@ public interface ImportJobDAO {
     ImportJobInfoDTO getImportJobById(Long appId, String jobId);
 
     /**
+     * 根据导入任务 ID 与创建人拉取导入任务信息，用于防止用户越权访问他人的导入任务
+     *
+     * @param appId   业务 ID
+     * @param jobId   任务 ID
+     * @param creator 任务创建人
+     * @return 导入任务信息，不存在或创建人不匹配时返回 null
+     */
+    ImportJobInfoDTO getImportJobByIdAndCreator(Long appId, String jobId, String creator);
+
+    /**
      * 根据用户获取未完成的导入任务列表
      *
      * @param appId    业务 ID

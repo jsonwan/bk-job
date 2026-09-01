@@ -50,6 +50,16 @@ public interface ExportJobDAO {
     ExportJobInfoDTO getExportJobById(Long appId, String jobId);
 
     /**
+     * 根据导出任务 ID 与创建人拉取导出任务信息，用于防止用户越权访问他人的导出任务
+     *
+     * @param appId   业务 ID
+     * @param jobId   任务 ID
+     * @param creator 任务创建人
+     * @return 导出任务信息，不存在或创建人不匹配时返回 null
+     */
+    ExportJobInfoDTO getExportJobByIdAndCreator(Long appId, String jobId, String creator);
+
+    /**
      * 根据用户获取未完成的导出任务列表
      *
      * @param appId    业务 ID

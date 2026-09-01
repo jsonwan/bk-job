@@ -33,6 +33,7 @@ import com.tencent.bk.job.backup.util.DbRecordMapper;
 import com.tencent.bk.job.common.util.json.JsonMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Record13;
@@ -85,10 +86,22 @@ public class ImportJobDAOImpl implements ImportJobDAO {
 
     @Override
     public ImportJobInfoDTO getImportJobById(Long appId, String jobId) {
+        return getImportJob(appId, jobId, null);
+    }
+
+    @Override
+    public ImportJobInfoDTO getImportJobByIdAndCreator(Long appId, String jobId, String creator) {
+        return getImportJob(appId, jobId, creator);
+    }
+
+    private ImportJobInfoDTO getImportJob(Long appId, String jobId, String creator) {
         List<Condition> conditions = new ArrayList<>();
         conditions.add(TABLE.ID.equal(jobId));
         if (appId > 0) {
             conditions.add(TABLE.APP_ID.equal(ULong.valueOf(appId)));
+        }
+        if (StringUtils.isNotBlank(creator)) {
+            conditions.add(TABLE.CREATOR.equal(creator));
         }
 
         Record13<String, ULong, String, ULong, ULong, UByte, String, String, String, String, UByte, String, String> record =

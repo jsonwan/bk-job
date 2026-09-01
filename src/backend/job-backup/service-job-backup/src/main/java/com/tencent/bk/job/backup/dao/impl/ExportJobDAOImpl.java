@@ -36,6 +36,7 @@ import com.tencent.bk.job.backup.model.tables.records.ExportJobRecord;
 import com.tencent.bk.job.common.util.json.JsonMapper;
 import com.tencent.bk.job.common.util.json.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Record13;
@@ -111,10 +112,22 @@ public class ExportJobDAOImpl implements ExportJobDAO {
 
     @Override
     public ExportJobInfoDTO getExportJobById(Long appId, String jobId) {
+        return getExportJob(appId, jobId, null);
+    }
+
+    @Override
+    public ExportJobInfoDTO getExportJobByIdAndCreator(Long appId, String jobId, String creator) {
+        return getExportJob(appId, jobId, creator);
+    }
+
+    private ExportJobInfoDTO getExportJob(Long appId, String jobId, String creator) {
         List<Condition> conditions = new ArrayList<>();
         conditions.add(TABLE.ID.equal(jobId));
         if (appId > 0) {
             conditions.add(TABLE.APP_ID.equal(ULong.valueOf(appId)));
+        }
+        if (StringUtils.isNotBlank(creator)) {
+            conditions.add(TABLE.CREATOR.equal(creator));
         }
         Record13<String, ULong, String, ULong, ULong, UByte, String, String, UByte, ULong, String,
             String, String> record =
