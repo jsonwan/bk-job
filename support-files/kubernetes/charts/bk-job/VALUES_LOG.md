@@ -46,6 +46,31 @@ job:
           bkAiDev: true
 ```
 
+3. 网关同步新增 MCP Server 开关，MCP Server 定义见 `support-files/bk-api-gateway/v3/definition.yaml`
+```yaml
+bkApiGatewayConfig:
+  # 是否同步MCP Server（供AI组件调用作业平台API），依赖网关侧支持MCP能力且环境已有生效的资源版本
+  syncMcpServers: false
+```
+
+4. 新增 AIDEV 配置，用于把 AI 相关资源（Agent/Skill/知识库）自动初始化到 AIDEV 平台，资源文件见 `support-files/bk-aidev/bk-job`
+```yaml
+bkAidevConfig:
+  # 是否自动把AI相关资源同步到AIDEV平台
+  sync: false
+  # AIDEV接口地址
+  url: "http://bkapi.example.com/api/bk-aidev"
+  # 同步到的目标空间，AIDEV默认空间为system-bkaidev
+  space: "system-bkaidev"
+  # 镜像中Agent Package清单的路径
+  manifestFile: "/data/bkai.yaml"
+  # 需要跳过同步的资源，格式为Kind/code，多个以空格分隔，如:"Agent/bk-job-ai"
+  excludeResources: ""
+  # 同步重试次数与间隔（秒），用于等待网关侧MCP Server就绪
+  syncMaxRetry: 5
+  syncRetryInterval: 30
+```
+
 ## 0.9.5
 1. 新增审批相关配置（审批任务 TTL、记录保留期、默认渠道、IMate 渠道地址与 appCode、回查 IMate 使用的开放接口凭证、Mock 渠道开关与通过 ID 列表）
 ```yaml

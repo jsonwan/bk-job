@@ -151,10 +151,17 @@ Return the proper job-sync-bk-api-gateway image name
 {{- end -}}
 
 {{/*
+Return the proper job-sync-bk-aidev image name
+*/}}
+{{- define "job-sync-bk-aidev.image" -}}
+{{ include "common.images.image" (dict "imageRoot" .Values.bkAidevConfig.image "global" .Values.global) }}
+{{- end -}}
+
+{{/*
 Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "job.imagePullSecrets" -}}
-{{ include "common.images.pullSecrets" (dict "images" (list .Values.k8sConfigWatcherConfig.image .Values.assembleConfig.image .Values.frontendConfig.image .Values.bkApiGatewayConfig.image .Values.migration.image .Values.gatewayConfig.image .Values.manageConfig.image .Values.executeConfig.image .Values.crontabConfig.image .Values.logsvrConfig.image .Values.backupConfig.image .Values.analysisConfig.image .Values.fileGatewayConfig.image .Values.fileWorkerConfig.image) "global" .Values.global) }}
+{{ include "common.images.pullSecrets" (dict "images" (list .Values.k8sConfigWatcherConfig.image .Values.assembleConfig.image .Values.frontendConfig.image .Values.bkApiGatewayConfig.image .Values.bkAidevConfig.image .Values.migration.image .Values.gatewayConfig.image .Values.manageConfig.image .Values.executeConfig.image .Values.crontabConfig.image .Values.logsvrConfig.image .Values.backupConfig.image .Values.analysisConfig.image .Values.fileGatewayConfig.image .Values.fileWorkerConfig.image) "global" .Values.global) }}
 {{- end -}}
 
 
@@ -819,6 +826,15 @@ Return the Job Web API URL
 */}}
 {{- define "job.web.api.url" -}}
 {{ printf "%s" (include "job.url.base" .) }}
+{{- end -}}
+
+{{/*
+Return the default AI agent root url
+指向部署时自动注册到AIDev平台的作业平台智能体，在未配置analysisConfig.ai.agentRootUrl时生效
+例：http://bkapi.example.com/api/bp-ai-bkjob-web1/prod/bk_plugin/plugin_api/
+*/}}
+{{- define "job.ai.default.agent.root.url" -}}
+{{ printf "%s/bp-ai-bkjob-web1/prod/bk_plugin/plugin_api/" (.Values.bkApiGatewayApiUrl | trimSuffix "/") }}
 {{- end -}}
 
 {{/*
