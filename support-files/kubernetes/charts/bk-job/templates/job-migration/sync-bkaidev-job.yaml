@@ -44,6 +44,9 @@ spec:
           value: {{ .Values.bkAidevConfig.space | quote }}
         - name: BK_AIDEV_MANIFEST_FILE
           value: {{ .Values.bkAidevConfig.manifestFile | quote }}
+        # 资源文件中${JOB_URL_BASE}占位符的取值，同步前由脚本渲染为真实地址
+        - name: JOB_URL_BASE
+          value: {{ include "job.url.base" . | quote }}
         # 需要跳过同步的资源，格式为 Kind/code，多个以空格分隔
         - name: BK_AIDEV_EXCLUDE_RESOURCES
           value: {{ .Values.bkAidevConfig.excludeResources | quote }}

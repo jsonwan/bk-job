@@ -12,7 +12,8 @@ support-files/bk-aidev/bk-job/
 ├── skills/                   # Skill 资源，目录名即 Skill code
 ├── knowledgebases/           # 知识库资源，目录名即知识库 code
 └── bin/
-    └── sync-bkaidev.sh       # 同步脚本，执行 bkai-cli validate / sync
+    ├── sync-bkaidev.sh       # 同步脚本，执行占位符渲染与 bkai-cli validate / sync
+    └── render_placeholders.py # 占位符渲染脚本
 ```
 
 ## 与 MCP 的关系
@@ -25,6 +26,27 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 - 引用位置：`agents/bk_job_ai.yaml` 的 `spec.mcps[].code`，取值与 `mcp_servers[].name` 一一对应。
 
 两个同步任务之间没有强制先后关系，`bin/sync-bkaidev.sh` 通过有限次重试等待 MCP 就绪。
+
+## 占位符渲染
+
+资源文件中与部署环境相关的地址不写死，而是用 `${占位符}` 表示，同步前由 `bin/render_placeholders.py`
+替换为真实值。占位符取值来自同名环境变量，环境变量在 Helm 的同步 Job 中注入。
+
+| 占位符 | 含义 | 取值来源 |
+| --- | --- | --- |
+| `${JOB_URL_BASE}` | 作业平台访问地址，如 `http://job.example.com` | Chart helper `job.url.base` |
+
+新增占位符时需要同时改两处：`render_placeholders.py` 中的 `PLACEHOLDER_NAMES` 名单，以及
+`support-files/kubernetes/charts/bk-job/templates/job-migration/sync-bkaidev-job.yaml` 中对应的环境变量。
+
+渲染刻意按名单逐个做字面量替换，而不是全量替换所有 `${xxx}`：知识库文档中大量出现作业平台魔法变量的
+字面写法（如 `${JOB_NAMESPACE_ALL}`、`${svr_addr}`），全量替换会把这些说明文档中的示例清成空串。
+渲染范围为 `bkai.yaml` 与 `agents`/`skills`/`knowledgebases` 三个目录下的文本文件，不含 `bin` 目录。
+若某个占位符在资源文件中被使用但对应环境变量为空，脚本会直接报错退出，避免把空地址同步到平台。
+
+渲染用 Python 而非 shell 的 `sed`：字面量替换不涉及 `sed` 中 `&`、`\` 与分隔符的转义规则，
+文件编码固定 UTF-8 且不改动原有换行风格，行为不受基础镜像 GNU coreutils / BusyBox 差异影响。
+因此基础镜像中需要有 `python3`，`sync-bkaidev.sh` 会先做检查并在缺失时明确报错。
 
 ## 同步方式
 

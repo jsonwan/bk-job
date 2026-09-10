@@ -11,6 +11,8 @@ log_warn() { log "WARN" "$1"; }
 log_error() { log "ERROR" "$1"; }
 title() { echo "====== $1 ======"; }
 
+# 本脚本所在目录，用于定位同目录下的 render_placeholders.py
+script_dir=$(cd "$(dirname "$0")" && pwd)
 # 待同步的 Agent Package 清单
 manifest_file="${BK_AIDEV_MANIFEST_FILE:-/data/bkai.yaml}"
 # 目标空间，AIDEV 默认空间为 system-bkaidev
@@ -28,6 +30,8 @@ if [ ! -f "${manifest_file}" ]; then
   log_error "Manifest file ${manifest_file} does not exist"
   exit 1
 fi
+# 资源根目录，渲染与同步都以该目录为基准
+resource_dir=$(dirname "${manifest_file}")
 # bkai-cli 调用 AIDEV 应用态接口需要应用身份，这里复用作业平台自身的 appCode/appSecret
 if [ -z "${BK_APP_CODE}" ] || [ -z "${BK_APP_SECRET}" ]; then
   log_error "BK_APP_CODE / BK_APP_SECRET is required by bkai-cli"
@@ -43,6 +47,32 @@ exclude_args=""
 for resource in ${exclude_resources}; do
   exclude_args="${exclude_args} --exclude-resource ${resource}"
 done
+
+# 占位符渲染交给 Python 脚本处理：字面量替换不涉及 sed 的转义规则（& \ 与分隔符），
+# 文件编码与渲染范围也更可控；占位符名单维护在 render_placeholders.py 中。
+title "rendering placeholders"
+# 解释器可通过 PYTHON_BIN 指定；未指定时依次探测 python3、python，
+# 部分基础镜像只提供 python 而没有 python3。
+python_bin="${PYTHON_BIN:-}"
+if [ -z "${python_bin}" ]; then
+  for candidate in python3 python; do
+    if command -v "${candidate}" >/dev/null 2>&1; then
+      python_bin="${candidate}"
+      break
+    fi
+  done
+fi
+if [ -z "${python_bin}" ]; then
+  log_error "python3 is required to render placeholders in resource files, but no python interpreter found"
+  exit 1
+fi
+# 渲染脚本按 Python 3 编写，用 python2 执行会直接语法报错，这里提前给出明确提示
+if ! "${python_bin}" -c 'import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)' >/dev/null 2>&1; then
+  log_error "Python 3 is required to render placeholders, but ${python_bin} is not python3"
+  exit 1
+fi
+log_info "Using python interpreter: ${python_bin}"
+"${python_bin}" "${script_dir}/render_placeholders.py" --base-dir "${resource_dir}"
 
 title "validating aidev resources"
 bkai-cli validate -f "${manifest_file}"

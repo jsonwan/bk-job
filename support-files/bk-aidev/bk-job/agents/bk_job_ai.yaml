@@ -32,17 +32,234 @@ spec:
 
   # llm_code 取 AIDEV 平台上可用的模型编码，context_window 单位为 K
   model:
-    llm_code: "aidev-reasoner-auto"
+    llm_code: aidev-chat-auto
     fallback_model: null
-    context_window: 16
+    temperature: 0.7
+    context_window: 16         # 上下文轮数
+    llm_token_limit: 28000
+    max_tokens: 4096
+    tool_output_compress_thrd: 4096
 
   # 平台当前暂不支持自定义 Tools，保持空数组
   tools: []
 
-  shortcuts:
-    - code: checkScript
-      name: 检查脚本
-      prompt: 查询指定作业的执行状态
+  conversation_settings:
+    opening_remark: 欢迎使用作业平台！我是负责协助你的AI助手（小鲸），请问有什么可以帮助你的吗？
+    predefined_questions: []
+    enable_chat_session: true
+    enable_word_selection_popup: false
+    commands:
+      - id: checkScript
+        name: 检查脚本
+        icon: null
+        agent_code: ai-bkjob-web1
+        alias: null
+        content: |
+          已知脚本内容如下：
+          ```{{script_type}}
+          {{script_content}}
+          ```
+          请帮忙检查一下脚本是否有语法或逻辑问题！
+        components:
+          - type: text
+            key: script_type
+            name: 脚本类型
+            placeholder: 请输入脚本类型（shell/bat/perl/python/powershell/sql）
+            default: "shell"
+            required: true
+            hide: false
+          - type: text
+            key: script_content
+            name: 脚本内容
+            placeholder: 请输入脚本内容
+            default: ""
+            required: true
+            hide: false
+        enable_fill_back: false
+        fill_back_component_key: context
+        fill_regx: null
+        support_upload:
+          vision: false
+          file: false
+
+      - id: analyzeScriptTaskError
+        name: 分析脚本任务报错信息
+        icon: null
+        agent_code: ai-bkjob-web1
+        alias: null
+        content: |
+          已知任务相关参数如下：
+          scope_type: {{scope_type}}
+          scope_id: {{scope_id}}
+          task_instance_id: {{task_instance_id}}
+          step_instance_id: {{step_instance_id}}
+          execute_count: {{execute_count}}
+          batch: {{batch}}
+          execute_object_type: {{execute_object_type}}
+          execute_object_resource_id: {{execute_object_resource_id}}
+            
+          输出规范：
+          点击[任务链接](${JOB_URL_BASE}/api_execute/{{task_instance_id}}?stepInstanceId={{step_instance_id}}&retryCount={{execute_count}}&batch={{batch}})
+          {分析结果}
+          
+          请你首先使用MCP工具查出对应任务的上下文数据，再结合任务执行的脚本内容，对执行结果的报错信息进行分析；要说明报错的主要含义，如果和脚本内容有关系，则明确指出是哪一段落的问题，并给出修改建议！最后请严格按照输出规范输出结果。
+        components:
+          - type: text
+            key: scope_type
+            name: 资源范围类型
+            placeholder: 资源范围类型，取值：biz-业务，biz_set-业务集
+            default: "biz"
+            required: true
+            hide: false
+          - type: text
+            key: scope_id
+            name: 资源范围ID
+            placeholder: 资源范围ID
+            default: ""
+            required: true
+            hide: false
+          - type: text
+            key: task_instance_id
+            name: 任务实例ID
+            placeholder: 任务实例ID
+            default: ""
+            required: true
+            hide: false
+          - type: text
+            key: step_instance_id
+            name: 步骤实例ID
+            placeholder: 步骤实例ID
+            default: ""
+            required: true
+            hide: false
+          - type: text
+            key: execute_count
+            name: 执行次数
+            placeholder: 执行次数
+            default: "0"
+            required: true
+            hide: false
+          - type: text
+            key: batch
+            name: 滚动批次
+            placeholder: 滚动批次（非滚动任务不传）
+            default: ""
+            required: false
+            hide: false
+          - type: text
+            key: execute_object_type
+            name: 执行对象类型
+            placeholder: 执行对象类型，取值：1-主机，2-容器
+            default: "1"
+            required: true
+            hide: false
+          - type: text
+            key: execute_object_resource_id
+            name: 执行对象资源ID
+            placeholder: 执行对象资源ID
+            default: ""
+            required: true
+            hide: false
+        enable_fill_back: false
+        fill_back_component_key: context
+        fill_regx: null
+        support_upload:
+          vision: false
+          file: false
+
+      - id: analyzeFileTaskError
+        name: 分析文件任务报错信息
+        icon: null
+        agent_code: ai-bkjob-web1
+        alias: null
+        content: |
+          已知任务相关参数如下：
+          scope_type: {{scope_type}}
+          scope_id: {{scope_id}}
+          task_instance_id: {{task_instance_id}}
+          step_instance_id: {{step_instance_id}}
+          execute_count: {{execute_count}}
+          batch: {{batch}}
+          execute_object_type: {{execute_object_type}}
+          execute_object_resource_id: {{execute_object_resource_id}}
+          mode: {{mode}}
+
+          输出规范：
+          点击[任务链接](${JOB_URL_BASE}/api_execute/{{task_instance_id}}?stepInstanceId={{step_instance_id}}&retryCount={{execute_count}}&batch={{batch}})
+          {分析结果}
+
+          请你首先使用MCP工具查出对应任务的上下文数据，再结合预分析结果数据，对任务报错内容进一步分析，并给出总结性的原因与处理建议。最后请严格按照输出规范输出结果。
+        components:
+          - type: text
+            key: scope_type
+            name: 资源范围类型
+            placeholder: 资源范围类型，取值：biz-业务，biz_set-业务集
+            default: "biz"
+            required: true
+            hide: false
+          - type: text
+            key: scope_id
+            name: 资源范围ID
+            placeholder: 资源范围ID
+            default: ""
+            required: true
+            hide: false
+          - type: text
+            key: task_instance_id
+            name: 任务实例ID
+            placeholder: 任务实例ID
+            default: ""
+            required: true
+            hide: false
+          - type: text
+            key: step_instance_id
+            name: 步骤实例ID
+            placeholder: 步骤实例ID
+            default: ""
+            required: true
+            hide: false
+          - type: text
+            key: execute_count
+            name: 执行次数
+            placeholder: 执行次数
+            default: "0"
+            required: true
+            hide: false
+          - type: text
+            key: batch
+            name: 滚动批次
+            placeholder: 滚动批次（非滚动任务不传）
+            default: ""
+            required: false
+            hide: false
+          - type: text
+            key: execute_object_type
+            name: 执行对象类型
+            placeholder: 执行对象类型，取值：1-主机，2-容器
+            default: "1"
+            required: true
+            hide: false
+          - type: text
+            key: execute_object_resource_id
+            name: 执行对象资源ID
+            placeholder: 执行对象资源ID
+            default: ""
+            required: true
+            hide: false
+          - type: text
+            key: mode
+            name: 文件任务上传下载标识
+            placeholder: 文件任务上传下载标识，取值：0-上传，1-下载
+            default: ""
+            required: true
+            hide: false
+
+        enable_fill_back: false
+        fill_back_component_key: context
+        fill_regx: null
+        support_upload:
+          vision: false
+          file: false
 
   subagents: []
   #   - code: bk-job-executor
@@ -56,11 +273,18 @@ spec:
 
   skills: []
 
-  # 知识库，待知识库同步到平台后在 items 中引用其 code
+  # 知识库
   knowledgebases:
     items:
       - code: bk-job-user-guide
-    recall_channels:
-      - dense
-      - sparse
+    retriever_code: ""
+    query_function: mixed
+    recall_channels: [dense, sparse]
+    rrf_weights:
+      dense: 0.7
+      sparse: 0.3
     document_fragment_count: 20
+    polish: true
+    origin: false
+    is_response_when_no_knowledgebase_match: true
+    rejection_message: 未找到相关作业文档，请补充问题信息。
