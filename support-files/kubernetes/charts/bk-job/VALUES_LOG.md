@@ -53,19 +53,19 @@ bkApiGatewayConfig:
   syncMcpServers: false
 ```
 
-4. 新增 AIDEV 配置，用于把 AI 相关资源（Agent/Skill/知识库）自动初始化到 AIDEV 平台，资源文件见 `support-files/bk-aidev/bk-job`
+4. 新增 AIDEV 配置，开启后把 AI 相关资源（Agent/Skill/知识库）自动注入到 AIDEV 平台，资源文件见 `support-files/bk-aidev/bk-job`
 ```yaml
-bkAidevConfig:
-  # 是否自动把AI相关资源同步到AIDEV平台
-  sync: false
+bkai:
+  # 是否开启bkaidev功能，开启后把AI相关资源（Agent/Skill/知识库）注入到AIDEV平台
+  enabled: false
   # AIDEV接口地址
   url: "http://bkapi.example.com/api/bk-aidev"
   # 同步到的目标空间，AIDEV默认空间为system-bkaidev
   space: "system-bkaidev"
   # 镜像中Agent Package清单的路径
-  manifestFile: "/data/bkai.yaml"
-  # 需要跳过同步的资源，格式为Kind/code，多个以空格分隔，如:"Agent/bk-job-ai"
-  excludeResources: ""
+  packagePath: "/bk-job/bkai.yaml"
+  # 需要跳过同步的资源，格式为Kind/code，如:["Agent/bk-job-ai"]
+  excludeResources: []
   # 同步重试次数与间隔（秒），用于等待网关侧MCP Server就绪
   syncMaxRetry: 5
   syncRetryInterval: 30

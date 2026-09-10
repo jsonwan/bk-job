@@ -13,8 +13,8 @@ title() { echo "====== $1 ======"; }
 
 # 本脚本所在目录，用于定位同目录下的 render_placeholders.py
 script_dir=$(cd "$(dirname "$0")" && pwd)
-# 待同步的 Agent Package 清单
-manifest_file="${BK_AIDEV_MANIFEST_FILE:-/data/bkai.yaml}"
+# 待同步的 Agent Package 清单，路径与镜像中的资源目录一致
+package_path="${BK_AIDEV_PACKAGE_PATH:-/bk-job/bkai.yaml}"
 # 目标空间，AIDEV 默认空间为 system-bkaidev
 space="${BK_AIDEV_SPACE:-system-bkaidev}"
 # 需要跳过的资源，格式为 Kind/code，多个以空格分隔；
@@ -26,18 +26,18 @@ max_retry="${BK_AIDEV_SYNC_MAX_RETRY:-5}"
 retry_interval="${BK_AIDEV_SYNC_RETRY_INTERVAL:-30}"
 
 title "checking params"
-if [ ! -f "${manifest_file}" ]; then
-  log_error "Manifest file ${manifest_file} does not exist"
+if [ ! -f "${package_path}" ]; then
+  log_error "Agent package file ${package_path} does not exist"
   exit 1
 fi
 # 资源根目录，渲染与同步都以该目录为基准
-resource_dir=$(dirname "${manifest_file}")
+resource_dir=$(dirname "${package_path}")
 # bkai-cli 调用 AIDEV 应用态接口需要应用身份，这里复用作业平台自身的 appCode/appSecret
 if [ -z "${BK_APP_CODE}" ] || [ -z "${BK_APP_SECRET}" ]; then
   log_error "BK_APP_CODE / BK_APP_SECRET is required by bkai-cli"
   exit 1
 fi
-log_info "manifest=${manifest_file} space=${space} app_code=${BK_APP_CODE}"
+log_info "package=${package_path} space=${space} app_code=${BK_APP_CODE}"
 log_info "exclude_resources=[${exclude_resources}] max_retry=${max_retry} retry_interval=${retry_interval}s"
 
 # 组装 --exclude-resource 参数，未配置时不传该参数。
@@ -75,14 +75,14 @@ log_info "Using python interpreter: ${python_bin}"
 "${python_bin}" "${script_dir}/render_placeholders.py" --base-dir "${resource_dir}"
 
 title "validating aidev resources"
-bkai-cli validate -f "${manifest_file}"
+bkai-cli validate -f "${package_path}"
 
 title "syncing aidev resources"
 attempt=1
 while true; do
   log_info "Syncing aidev resources, attempt ${attempt}/${max_retry}"
   # exclude_args 需要按空格拆分成多个参数，故刻意不加引号
-  if bkai-cli sync -f "${manifest_file}" --space "${space}" ${exclude_args}; then
+  if bkai-cli sync -f "${package_path}" --space "${space}" ${exclude_args}; then
     log_info "Aidev resources synced successfully"
     break
   fi

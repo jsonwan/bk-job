@@ -1,6 +1,8 @@
 # AIDEV 资源目录
 
-本目录维护作业平台需要自动初始化到 AIDEV 平台的 AI 资源，由部署阶段的 `job-sync-bk-aidev` 任务统一同步。
+本目录维护作业平台需要自动初始化到 AIDEV 平台的 AI 资源，由部署阶段的 `job-sync-bk-aidev` 任务统一同步，
+通过 Helm 的 `bkai.enabled` 开关控制是否开启。镜像中资源被放在 `/bk-job` 目录下，与 AIDEV 方案文档的
+目录约定（`/{系统标识}/bkai.yaml`）保持一致。
 
 ## 目录结构
 
@@ -46,19 +48,20 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 
 渲染用 Python 而非 shell 的 `sed`：字面量替换不涉及 `sed` 中 `&`、`\` 与分隔符的转义规则，
 文件编码固定 UTF-8 且不改动原有换行风格，行为不受基础镜像 GNU coreutils / BusyBox 差异影响。
-因此基础镜像中需要有 `python3`，`sync-bkaidev.sh` 会先做检查并在缺失时明确报错。
+因此基础镜像中需要有 Python 3，`sync-bkaidev.sh` 会依次探测 `python3`、`python`，
+也支持通过 `PYTHON_BIN` 指定解释器，并在缺失或版本不符时明确报错。
 
 ## 同步方式
 
 镜像中已内置 `bkai-cli`，同步等价于：
 
 ```bash
-bkai-cli validate -f /data/bkai.yaml
-bkai-cli sync -f /data/bkai.yaml --space system-bkaidev
+bkai-cli validate -f /bk-job/bkai.yaml
+bkai-cli sync -f /bk-job/bkai.yaml --space system-bkaidev
 ```
 
-资源被用户在平台上手工改动、不希望再次覆盖时，可通过 `bkAidevConfig.excludeResources` 传入 `Kind/code`
-（如 `Agent/bk-job-ai`）跳过该资源。
+资源被用户在平台上手工改动、不希望再次覆盖时，可通过 `bkai.excludeResources` 传入 `Kind/code`
+（如 `["Agent/bk-job-ai"]`）跳过该资源。
 
 ## 维护约定
 

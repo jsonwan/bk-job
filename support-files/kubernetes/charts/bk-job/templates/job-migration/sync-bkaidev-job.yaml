@@ -1,4 +1,4 @@
-{{- if .Values.bkAidevConfig.sync }}
+{{- if .Values.bkai.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "common.labels.standard" . | nindent 4 }}
     app.kubernetes.io/component: "job-sync-bk-aidev"
-    {{ include "job.labelKeys.imageTag" . }} : {{ .Values.bkAidevConfig.image.tag | quote }}
+    {{ include "job.labelKeys.imageTag" . }} : {{ .Values.bkai.image.tag | quote }}
     {{- if .Values.commonLabels }}
     {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
     {{- end }}
@@ -25,9 +25,9 @@ spec:
         args:
         - bin/sync-bkaidev.sh
         image: {{ include "job-sync-bk-aidev.image" . }}
-        imagePullPolicy: {{ .Values.bkAidevConfig.image.pullPolicy }}
+        imagePullPolicy: {{ .Values.bkai.image.pullPolicy }}
         resources:
-          {{- toYaml .Values.bkAidevConfig.resources | nindent 10 }}
+          {{- toYaml .Values.bkai.resources | nindent 10 }}
         name: job-sync-bk-aidev
         env:
         # bkai-cli 调用 AIDEV 应用态接口需要应用身份，直接复用作业平台自身的 appCode/appSecret
@@ -39,21 +39,21 @@ spec:
           value: {{ if .Values.tenant.enabled }}"system"{{ else }}"default"{{ end }}
         # TODO 待确认：bkai-cli 访问 AIDEV 接口所需的地址及其环境变量名，按 AIDEV 平台文档补全
         - name: BK_AIDEV_API_URL
-          value: {{ .Values.bkAidevConfig.url | quote }}
+          value: {{ .Values.bkai.url | quote }}
         - name: BK_AIDEV_SPACE
-          value: {{ .Values.bkAidevConfig.space | quote }}
-        - name: BK_AIDEV_MANIFEST_FILE
-          value: {{ .Values.bkAidevConfig.manifestFile | quote }}
+          value: {{ .Values.bkai.space | quote }}
+        - name: BK_AIDEV_PACKAGE_PATH
+          value: {{ .Values.bkai.packagePath | quote }}
         # 资源文件中${JOB_URL_BASE}占位符的取值，同步前由脚本渲染为真实地址
         - name: JOB_URL_BASE
           value: {{ include "job.url.base" . | quote }}
-        # 需要跳过同步的资源，格式为 Kind/code，多个以空格分隔
+        # 需要跳过同步的资源，格式为 Kind/code；values 中为数组，这里拼成空格分隔的字符串传给脚本
         - name: BK_AIDEV_EXCLUDE_RESOURCES
-          value: {{ .Values.bkAidevConfig.excludeResources | quote }}
+          value: {{ join " " .Values.bkai.excludeResources | quote }}
         # Agent 引用的 MCP Server 由网关同步任务异步注册，这里通过有限重试等待其就绪
         - name: BK_AIDEV_SYNC_MAX_RETRY
-          value: {{ .Values.bkAidevConfig.syncMaxRetry | quote }}
+          value: {{ .Values.bkai.syncMaxRetry | quote }}
         - name: BK_AIDEV_SYNC_RETRY_INTERVAL
-          value: {{ .Values.bkAidevConfig.syncRetryInterval | quote }}
+          value: {{ .Values.bkai.syncRetryInterval | quote }}
       restartPolicy: Never
 {{- end }}

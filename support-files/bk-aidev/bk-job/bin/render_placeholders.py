@@ -111,7 +111,7 @@ def render(base_dir):
 def main():
     parser = argparse.ArgumentParser(
         description="Render placeholders in aidev resource files before syncing to the aidev platform")
-    parser.add_argument("--base-dir", required=True, help="aidev resource base dir, e.g. /data")
+    parser.add_argument("--base-dir", required=True, help="aidev resource base dir, e.g. /bk-job")
     args = parser.parse_args()
     if not os.path.isdir(args.base_dir):
         log("ERROR", "Base dir {} does not exist".format(args.base_dir))

@@ -3,12 +3,13 @@
 # TODO 待填充：替换为 AIDEV 平台提供的正式基础镜像地址与 tag
 FROM hub.bktencent.com/blueking/bkai-cli:latest
 
-WORKDIR /data
+# 资源目录与 AIDEV 方案文档的目录约定保持一致：/{系统标识}/bkai.yaml
+WORKDIR /bk-job
 
-COPY bin /data/bin
-COPY bkai.yaml /data/bkai.yaml
-COPY agents /data/agents
-COPY skills /data/skills
-COPY knowledgebases /data/knowledgebases
+COPY bin /bk-job/bin
+COPY bkai.yaml /bk-job/bkai.yaml
+COPY agents /bk-job/agents
+COPY skills /bk-job/skills
+COPY knowledgebases /bk-job/knowledgebases
 
-RUN chmod +x /data/bin/sync-bkaidev.sh
+RUN chmod +x /bk-job/bin/sync-bkaidev.sh

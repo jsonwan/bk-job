@@ -154,14 +154,14 @@ Return the proper job-sync-bk-api-gateway image name
 Return the proper job-sync-bk-aidev image name
 */}}
 {{- define "job-sync-bk-aidev.image" -}}
-{{ include "common.images.image" (dict "imageRoot" .Values.bkAidevConfig.image "global" .Values.global) }}
+{{ include "common.images.image" (dict "imageRoot" .Values.bkai.image "global" .Values.global) }}
 {{- end -}}
 
 {{/*
 Return the proper Docker Image Registry Secret Names
 */}}
 {{- define "job.imagePullSecrets" -}}
-{{ include "common.images.pullSecrets" (dict "images" (list .Values.k8sConfigWatcherConfig.image .Values.assembleConfig.image .Values.frontendConfig.image .Values.bkApiGatewayConfig.image .Values.bkAidevConfig.image .Values.migration.image .Values.gatewayConfig.image .Values.manageConfig.image .Values.executeConfig.image .Values.crontabConfig.image .Values.logsvrConfig.image .Values.backupConfig.image .Values.analysisConfig.image .Values.fileGatewayConfig.image .Values.fileWorkerConfig.image) "global" .Values.global) }}
+{{ include "common.images.pullSecrets" (dict "images" (list .Values.k8sConfigWatcherConfig.image .Values.assembleConfig.image .Values.frontendConfig.image .Values.bkApiGatewayConfig.image .Values.bkai.image .Values.migration.image .Values.gatewayConfig.image .Values.manageConfig.image .Values.executeConfig.image .Values.crontabConfig.image .Values.logsvrConfig.image .Values.backupConfig.image .Values.analysisConfig.image .Values.fileGatewayConfig.image .Values.fileWorkerConfig.image) "global" .Values.global) }}
 {{- end -}}
 
 

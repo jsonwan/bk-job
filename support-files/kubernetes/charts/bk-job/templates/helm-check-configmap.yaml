@@ -42,7 +42,7 @@ data:
   bk-job-sync-api-gateway:
     image: {{ include "common.images.image" (dict "imageRoot" .Values.bkApiGatewayConfig.image "global" .Values.global) }}
   bk-job-sync-bk-aidev:
-    image: {{ include "common.images.image" (dict "imageRoot" .Values.bkAidevConfig.image "global" .Values.global) }}
+    image: {{ include "common.images.image" (dict "imageRoot" .Values.bkai.image "global" .Values.global) }}
 {{- end }}
 {{- end }}
 
