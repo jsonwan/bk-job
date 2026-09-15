@@ -276,7 +276,7 @@ spec:
   # 知识库
   knowledgebases:
     items:
-      - code: bk-job-user-guide
+      - code: bk_job_user_guide
     retriever_code: ""
     query_function: mixed
     recall_channels: [dense, sparse]

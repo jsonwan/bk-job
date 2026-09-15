@@ -12,5 +12,5 @@ metadata:
 # 因此 Skill 与知识库暂不在此声明，待对应目录准备好内容后再取消注释。
 resources:
   - agents/bk_job_ai.yaml
-  - knowledgebases/bk-job-user-guide
+  - knowledgebases/bk_job_user_guide
   # - skills/job_skill
