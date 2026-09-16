@@ -4,12 +4,11 @@
 apiVersion: bkai.tencent.com/aidev-agent/v1
 kind: Agent
 
+# 资源文件不指定 space，目标空间统一由 bkai-init 的 --space 参数传入；
+# Agent 也不能配置 version（含 null），发布版本由平台分配。
 metadata:
   code: ai-bkjob-web1
   name: 蓝鲸作业平台页面小鲸
-  # 默认空间，与 bkai-cli sync --space 保持一致
-  space: system-bkaidev
-  version: "1.0.0"
   description: 蓝鲸作业平台Web页面AI小鲸的智能体。
 
 spec:
@@ -52,7 +51,6 @@ spec:
       - id: checkScript
         name: 检查脚本
         icon: null
-        agent_code: ai-bkjob-web1
         alias: null
         content: |
           已知脚本内容如下：
@@ -76,7 +74,7 @@ spec:
             required: true
             hide: false
         enable_fill_back: false
-        fill_back_component_key: context
+        fill_back_component_key: null
         fill_regx: null
         support_upload:
           vision: false
@@ -85,7 +83,6 @@ spec:
       - id: analyzeScriptTaskError
         name: 分析脚本任务报错信息
         icon: null
-        agent_code: ai-bkjob-web1
         alias: null
         content: |
           已知任务相关参数如下：
@@ -161,7 +158,7 @@ spec:
             required: true
             hide: false
         enable_fill_back: false
-        fill_back_component_key: context
+        fill_back_component_key: null
         fill_regx: null
         support_upload:
           vision: false
@@ -170,7 +167,6 @@ spec:
       - id: analyzeFileTaskError
         name: 分析文件任务报错信息
         icon: null
-        agent_code: ai-bkjob-web1
         alias: null
         content: |
           已知任务相关参数如下：
@@ -255,21 +251,24 @@ spec:
             hide: false
 
         enable_fill_back: false
-        fill_back_component_key: context
+        fill_back_component_key: null
         fill_regx: null
         support_upload:
           vision: false
           file: false
 
   subagents: []
-  #   - code: bk-job-executor
+  #   - code: ai-job-exec
 
   # MCP Server 引用，type 固定为 apigw。
   # code 与 support-files/bk-api-gateway/v3/definition.yaml 中 mcp_servers[].name 一一对应；
   # 网关侧实际的 MCP Server 全名为 {网关名}-{环境名}-{name}，如需按环境区分需在此改为完整名称。
+  # 无论 MCP 是否公开，都需事先在网关侧对同步应用与本智能体授权，bkai-init 不会自动申请。
   mcps:
     - type: apigw
       code: bk-job-prod-mcp-task-context
+      # 显式声明全选，避免不同版本对「省略即全选」的推断差异；全选会包含 MCP 后续新增的工具
+      is_selected_all: true
 
   skills: []
 

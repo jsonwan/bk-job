@@ -12,11 +12,24 @@ support-files/bk-aidev/bk-job/
 ├── agents/
 │   └── bk_job_ai.yaml        # Agent 定义（引用 MCP / Skill / 知识库）
 ├── skills/                   # Skill 资源，目录名即 Skill code
-├── knowledgebases/           # 知识库资源，目录名即知识库 code
+├── knowledgebases/           # 知识库资源，每个子目录一个知识库
 └── bin/
-    ├── sync-bkaidev.sh       # 同步脚本，执行占位符渲染与 bkai-cli validate / sync
+    ├── sync-bkaidev.sh       # 同步脚本，执行占位符渲染与 bkai-init validate / diff / sync
     └── render_placeholders.py # 占位符渲染脚本
 ```
+
+## 资源 code 命名规则
+
+code 是平台定位资源的稳定标识，**一律小写**，与展示名称无关；不符合规则会被 `bkai-init` 直接拒绝，
+且平台不做大小写转换或迁移。
+
+| 资源 | 规则 | 本仓库取值 |
+| --- | --- | --- |
+| 智能体 / 子智能体 | `^ai-[a-z][a-z0-9-]{1,12}$`，总长 5–16 位，不支持下划线 | `ai-bkjob-web1` |
+| 角色 / MCP / Skill | `^[a-z][a-z0-9_-]{0,63}$` | `bk-job-prod-mcp-task-context` |
+| 知识库 | `^[a-z][a-z0-9_]{0,63}$`，**不支持中划线** | `bk_job_user_guide` |
+
+知识库 code 直接用作 Milvus 集合名，Milvus 不接受中划线，故只能用下划线。
 
 ## 与 MCP 的关系
 
@@ -53,19 +66,34 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 
 ## 同步方式
 
-镜像中已内置 `bkai-cli`，同步等价于：
+镜像中已内置 `bkai-init`，同步等价于：
 
 ```bash
-bkai-cli validate -f /bk-job/bkai.yaml
-bkai-cli sync -f /bk-job/bkai.yaml --space system-bkaidev
+bkai-init validate -f /bk-job/bkai.yaml --space "$SPACE_ID"
+bkai-init diff     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID"
+bkai-init sync     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID" \
+  --confirm --publish --publish_config_only=1
 ```
 
-资源被用户在平台上手工改动、不希望再次覆盖时，可通过 `bkai.excludeResources` 传入 `Kind/code`
-（如 `["Agent/bk-job-ai"]`）跳过该资源。
+几个容易踩的点：
+
+- **`sync` 不带 `--confirm` 只是只读预览**，命令照样返回 0，但平台上什么都不会写；
+- **`--space` 必填、无默认值，传的是目标空间 ID**，资源文件里不再声明 `space`；
+- **不带 `--publish` 只同步草稿**，页面上的智能体不会更新，由 `bkai.publish` 控制；
+- 平台地址与应用身份由 `BKAI_BASE_URL` / `BKAI_APP_CODE` / `BKAI_APP_SECRET` 三个环境变量提供，
+  变量名由 `bkai-init` 约定，不可改名。
+
+资源被用户在平台上手工改动、不希望再次覆盖时，可通过 `bkai.excludeResources` 传入 `kind/code`
+（kind 小写，取值 `agent` / `collection` / `skill` / `knowledgebase`，如 `["agent/ai-bkjob-web1"]`）跳过该资源。
+同步中途失败时已写入的资源不会自动回滚，重跑是按 code 覆盖式重入。
 
 ## 维护约定
 
-- `bkai.yaml` 的 `resources` 中列出的路径必须真实存在，否则 `bkai-cli validate` 会失败；
+- `bkai.yaml` 的 `resources` 中列出的路径必须真实存在，否则 `bkai-init validate` 会失败；
+- `resources` 中被引用的依赖（Skill、知识库、子智能体）要排在引用它们的 Agent 之前；
 - 新增 Skill / 知识库后，需同时更新 `bkai.yaml` 与 `agents/bk_job_ai.yaml` 中的引用；
+- Agent 不能配置 `metadata.version`（含 null）与 `metadata.space`，两者分别由平台分配和由 `--space` 传入；
+- 自定义指令不要填 `agent_code`：填了就是「引用其它智能体的已发布指令」，且该 code 必须出现在 `subagents` 中；
 - 平台当前暂不支持自定义 Tools，`spec.tools` 保持空数组；
+- 引用的 MCP **无论是否公开都要事先授权**，`bkai-init` 不会自动创建 MCP，也不会申请权限；
 - 任何资源文件中都不要写入 Token、Secret 等敏感凭证，凭证统一通过部署时的环境变量注入。

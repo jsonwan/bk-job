@@ -1,0 +1,15 @@
+# 知识库资源定义。本文件位于知识库根目录，不会被当作知识库文档同步。
+# code 直接用作 Milvus 集合名：只允许小写英文、数字与下划线，不支持中划线。
+apiVersion: bkai.tencent.com/v1
+kind: KnowledgeBase
+
+metadata:
+  code: bk_job_user_guide
+  name: 蓝鲸作业平台使用手册
+  description: 作业平台的产品简介、快速上手、功能说明、最佳实践与常见问题文档。
+
+spec:
+  generate_type: space
+  is_public: false
+  config: {}
+  tag_names: []

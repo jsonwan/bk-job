@@ -30,24 +30,29 @@ spec:
           {{- toYaml .Values.bkai.resources | nindent 10 }}
         name: job-sync-bk-aidev
         env:
-        # bkai-cli 调用 AIDEV 应用态接口需要应用身份，直接复用作业平台自身的 appCode/appSecret
-        - name: BK_APP_CODE
-          value: {{ .Values.appCode }}
-        - name: BK_APP_SECRET
-          value: {{ .Values.appSecret }}
-        - name: BK_APP_TENANT_ID
-          value: {{ if .Values.tenant.enabled }}"system"{{ else }}"default"{{ end }}
-        # TODO 待确认：bkai-cli 访问 AIDEV 接口所需的地址及其环境变量名，按 AIDEV 平台文档补全
-        - name: BK_AIDEV_API_URL
+        # BKAI_* 这几个变量由 bkai-init 直接读取，变量名不可改
+        - name: BKAI_BASE_URL
           value: {{ .Values.bkai.url | quote }}
+        # bkai-init 调用 AIDEV 应用态接口需要应用身份，直接复用作业平台自身的 appCode/appSecret
+        - name: BKAI_APP_CODE
+          value: {{ .Values.appCode }}
+        - name: BKAI_APP_SECRET
+          value: {{ .Values.appSecret }}
+        # 以下 BK_AIDEV_* 由 bin/sync-bkaidev.sh 读取，再转成 bkai-init 的命令行参数
+        - name: BK_AIDEV_TENANT_ID
+          value: {{ if .Values.tenant.enabled }}"system"{{ else }}"default"{{ end }}
+        # 目标空间 ID，必填；资源文件不再声明 space，全部以该值为准
         - name: BK_AIDEV_SPACE
           value: {{ .Values.bkai.space | quote }}
         - name: BK_AIDEV_PACKAGE_PATH
           value: {{ .Values.bkai.packagePath | quote }}
+        # 是否发布智能体，不发布时同步结果只是草稿，页面上的智能体不会更新
+        - name: BK_AIDEV_PUBLISH
+          value: {{ .Values.bkai.publish | quote }}
         # 资源文件中${JOB_URL_BASE}占位符的取值，同步前由脚本渲染为真实地址
         - name: JOB_URL_BASE
           value: {{ include "job.url.base" . | quote }}
-        # 需要跳过同步的资源，格式为 Kind/code；values 中为数组，这里拼成空格分隔的字符串传给脚本
+        # 需要跳过同步的资源，格式为 kind/code；values 中为数组，这里拼成空格分隔的字符串传给脚本
         - name: BK_AIDEV_EXCLUDE_RESOURCES
           value: {{ join " " .Values.bkai.excludeResources | quote }}
         # Agent 引用的 MCP Server 由网关同步任务异步注册，这里通过有限重试等待其就绪

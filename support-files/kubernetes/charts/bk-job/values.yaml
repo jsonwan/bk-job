@@ -2388,14 +2388,16 @@ bkApiGatewayConfig:
 bkai:
   # 是否开启bkaidev功能，开启后把AI相关资源（Agent/Skill/知识库）注入到AIDEV平台
   enabled: false
-  # TODO 待确认：AIDEV接口地址
-  url: "http://bkapi.example.com/api/bk-aidev"
-  # 同步到的目标空间，AIDEV默认空间为system-bkaidev
-  space: "system-bkaidev"
+  # AIDEV平台访问地址，注入给bkai-init的BKAI_BASE_URL
+  url: "http://bkapi.example.com/api/bk-aidev/prod"
+  # 同步到的目标空间ID，开启bkai后必填且无默认值；资源文件不再声明space，一律以该值为准
+  space: ""
   # 镜像中Agent Package清单的路径
   packagePath: "/bk-job/bkai.yaml"
-  # 需要跳过同步的资源，格式为Kind/code，如:["Agent/bk-job-ai"]；
-  # 用于资源已被用户在平台上手工改动、不希望被再次覆盖的场景
+  # 是否发布智能体：false时同步结果只是草稿，页面上的智能体不会更新
+  publish: true
+  # 需要跳过同步的资源，格式为kind/code（kind小写，取值agent/collection/skill/knowledgebase），
+  # 如:["agent/ai-bkjob-web1"]；用于资源已被用户在平台上手工改动、不希望被再次覆盖的场景
   excludeResources: []
   # 同步重试次数与间隔（秒）：Agent引用的MCP Server由网关同步任务异步注册，
   # 两个任务之间没有强制先后关系，通过有限重试等待MCP就绪
