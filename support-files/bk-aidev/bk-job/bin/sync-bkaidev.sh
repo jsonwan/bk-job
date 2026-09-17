@@ -11,7 +11,7 @@ log_warn() { log "WARN" "$1"; }
 log_error() { log "ERROR" "$1"; }
 title() { echo "====== $1 ======"; }
 
-# 本脚本所在目录，用于定位同目录下的 render_placeholders.py
+# 本脚本所在目录，用于定位同目录下的 Python 辅助脚本
 script_dir=$(cd "$(dirname "$0")" && pwd)
 # 待同步的 Agent Package 清单，路径与镜像中的资源目录一致
 package_path="${BK_AIDEV_PACKAGE_PATH:-/bk-job/bkai.yaml}"
@@ -21,6 +21,9 @@ space="${BK_AIDEV_SPACE:-}"
 tenant_id="${BK_AIDEV_TENANT_ID:-system}"
 # 是否发布智能体：不发布时同步结果只是草稿，页面上的小鲸仍是旧版本
 publish="${BK_AIDEV_PUBLISH:-true}"
+# 与后端 virtualAccount.queryAdminUsername 同义：多租户环境要查虚拟账号的 bk_username，
+# 非多租户环境固定用 admin
+query_admin_username="${BK_AIDEV_QUERY_ADMIN_USERNAME:-false}"
 # 需要跳过的资源，格式为 kind/code（kind 小写，取值 agent/collection/skill/knowledgebase），
 # 多个以空格分隔；用于资源已被用户在平台上手工改动、不希望被再次覆盖的场景。
 exclude_resources="${BK_AIDEV_EXCLUDE_RESOURCES:-}"
@@ -68,9 +71,9 @@ if [ "${publish}" = "true" ]; then
   publish_args="--publish --publish_config_only=1"
 fi
 
-# 占位符渲染交给 Python 脚本处理：字面量替换不涉及 sed 的转义规则（& \ 与分隔符），
-# 文件编码与渲染范围也更可控；占位符名单维护在 render_placeholders.py 中。
-title "rendering placeholders"
+# 渲染占位符与查询调用用户名都用 Python：前者的字面量替换不涉及 sed 的转义规则
+# （& \ 与分隔符），后者要发 HTTP 请求而基础镜像中没有 curl。
+title "preparing python interpreter"
 # 解释器可通过 PYTHON_BIN 指定；未指定时依次探测 python3、python，
 # 部分基础镜像只提供 python 而没有 python3。
 python_bin="${PYTHON_BIN:-}"
@@ -83,16 +86,41 @@ if [ -z "${python_bin}" ]; then
   done
 fi
 if [ -z "${python_bin}" ]; then
-  log_error "python3 is required to render placeholders in resource files, but no python interpreter found"
+  log_error "python3 is required by the sync helper scripts, but no python interpreter found"
   exit 1
 fi
-# 渲染脚本按 Python 3 编写，用 python2 执行会直接语法报错，这里提前给出明确提示
+# 两个辅助脚本都按 Python 3 编写，用 python2 执行会直接语法报错，这里提前给出明确提示
 if ! "${python_bin}" -c 'import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)' >/dev/null 2>&1; then
-  log_error "Python 3 is required to render placeholders, but ${python_bin} is not python3"
+  log_error "Python 3 is required, but ${python_bin} is not python3"
   exit 1
 fi
 log_info "Using python interpreter: ${python_bin}"
+
+# 占位符名单维护在 render_placeholders.py 中。
+title "rendering placeholders"
 "${python_bin}" "${script_dir}/render_placeholders.py" --base-dir "${resource_dir}"
+
+# bkai-init 要求带上调用用户名，取值是用户管理中的 bk_username 而非登录名。
+# 取值规则与后端保持一致：非多租户环境就是 admin，多租户环境才查虚拟账号 bk_admin。
+title "resolving bkai username"
+if [ -n "${BKAI_USERNAME}" ]; then
+  log_info "BKAI_USERNAME is set explicitly, skip the lookup"
+elif [ "${query_admin_username}" != "true" ]; then
+  BKAI_USERNAME="admin"
+  export BKAI_USERNAME
+  log_info "Tenant mode is off, use the original admin account"
+else
+  if ! BKAI_USERNAME=$("${python_bin}" "${script_dir}/resolve_bkai_username.py"); then
+    log_error "Failed to resolve BKAI_USERNAME, set bkai.username in values as a fallback"
+    exit 1
+  fi
+  if [ -z "${BKAI_USERNAME}" ]; then
+    log_error "Resolved BKAI_USERNAME is empty"
+    exit 1
+  fi
+  export BKAI_USERNAME
+fi
+log_info "BKAI_USERNAME=${BKAI_USERNAME}"
 
 title "validating aidev resources"
 bkai-init validate -f "${package_path}" --space "${space}"

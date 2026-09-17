@@ -2396,6 +2396,9 @@ bkai:
   packagePath: "/bk-job/bkai.yaml"
   # 是否发布智能体：false时同步结果只是草稿，页面上的智能体不会更新
   publish: true
+  # bkai-init要求的调用用户名（BKAI_USERNAME），取值是用户管理中的bk_username而非登录名；
+  # 留空时按virtualAccount.queryAdminUsername推导：为false取admin，为true查虚拟账号bk_admin的bk_username
+  username: ""
   # 需要跳过同步的资源，格式为kind/code（kind小写，取值agent/collection/skill/knowledgebase），
   # 如:["agent/ai-bkjob-web1"]；用于资源已被用户在平台上手工改动、不希望被再次覆盖的场景
   excludeResources: []

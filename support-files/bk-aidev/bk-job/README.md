@@ -15,7 +15,8 @@ support-files/bk-aidev/bk-job/
 ├── knowledgebases/           # 知识库资源，每个子目录一个知识库
 └── bin/
     ├── sync-bkaidev.sh       # 同步脚本，执行占位符渲染与 bkai-init validate / diff / sync
-    └── render_placeholders.py # 占位符渲染脚本
+    ├── render_placeholders.py   # 占位符渲染脚本
+    └── resolve_bkai_username.py # 查询 bkai-init 需要的调用用户名
 ```
 
 ## 资源 code 命名规则
@@ -81,11 +82,33 @@ bkai-init sync     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID" \
 - **`--space` 必填、无默认值，传的是目标空间 ID**，资源文件里不再声明 `space`；
 - **不带 `--publish` 只同步草稿**，页面上的智能体不会更新，由 `bkai.publish` 控制；
 - 平台地址与应用身份由 `BKAI_BASE_URL` / `BKAI_APP_CODE` / `BKAI_APP_SECRET` 三个环境变量提供，
-  变量名由 `bkai-init` 约定，不可改名。
+  变量名由 `bkai-init` 约定，不可改名；调用用户名 `BKAI_USERNAME` 见下一节。
 
 资源被用户在平台上手工改动、不希望再次覆盖时，可通过 `bkai.excludeResources` 传入 `kind/code`
 （kind 小写，取值 `agent` / `collection` / `skill` / `knowledgebase`，如 `["agent/ai-bkjob-web1"]`）跳过该资源。
 同步中途失败时已写入的资源不会自动回滚，重跑是按 code 覆盖式重入。
+
+## 调用用户名（BKAI_USERNAME）
+
+`bkai-init` 要求带上调用用户名，取值是蓝鲸用户管理中的 **`bk_username`**，不是登录名。部署阶段没有
+真实操作人，取值规则与后端取管理员账号的规则（`virtualAccount.queryAdminUsername`）保持一致：
+
+- **非多租户环境**（默认）：`bk_username` 就是 `admin`，不查接口，与后端 `OriginalAdminNameProvider` 一致；
+- **多租户环境**（`queryAdminUsername=true`）：查虚拟账号 `bk_admin` 的 `bk_username`，与后端
+  `VirtualAdminAccountCache` 一致，由 `bin/resolve_bkai_username.py` 在同步前查询并注入：
+
+```text
+GET ${bkUserApiGatewayUrl}/api/v3/open/tenant/virtual-users/-/lookup/?lookups=bk_admin&lookup_field=login_name
+Header: X-Bk-Tenant-Id: system
+Header: X-Bkapi-Authorization: {"bk_app_code": "...", "bk_app_secret": "..."}
+
+{"data":[{"bk_username":"gtrydp5fs282bptk","login_name":"bk_admin", ...}]}
+```
+
+用 Python 标准库而不是 `curl` 发请求：AIDEV 基础镜像里没有 `curl`，但一定有 Python 3。
+
+- 已知 `bk_username` 时，直接配 `bkai.username`，两种环境都跳过上面的推导；
+- 查询失败会直接中断同步并给出提示，不会用空用户名继续。
 
 ## 维护约定
 
@@ -93,7 +116,8 @@ bkai-init sync     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID" \
 - `resources` 中被引用的依赖（Skill、知识库、子智能体）要排在引用它们的 Agent 之前；
 - 新增 Skill / 知识库后，需同时更新 `bkai.yaml` 与 `agents/bk_job_ai.yaml` 中的引用；
 - Agent 不能配置 `metadata.version`（含 null）与 `metadata.space`，两者分别由平台分配和由 `--space` 传入；
-- 自定义指令不要填 `agent_code`：填了就是「引用其它智能体的已发布指令」，且该 code 必须出现在 `subagents` 中；
+- 自定义指令的 `agent_code` 省略即表示当前智能体；填其它智能体的 code 就变成「引用来源指令」，
+  此时该 code 必须出现在 `subagents` 中，且来源指令必须已发布；
 - 平台当前暂不支持自定义 Tools，`spec.tools` 保持空数组；
 - 引用的 MCP **无论是否公开都要事先授权**，`bkai-init` 不会自动创建 MCP，也不会申请权限；
 - 任何资源文件中都不要写入 Token、Secret 等敏感凭证，凭证统一通过部署时的环境变量注入。

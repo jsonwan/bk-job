@@ -66,6 +66,8 @@ bkai:
   packagePath: "/bk-job/bkai.yaml"
   # 是否发布智能体：false时同步结果只是草稿，页面上的智能体不会更新
   publish: true
+  # bkai-init要求的调用用户名（BKAI_USERNAME），留空时按virtualAccount.queryAdminUsername推导
+  username: ""
   # 需要跳过同步的资源，格式为kind/code（kind小写），如:["agent/ai-bkjob-web1"]
   excludeResources: []
   # 同步重试次数与间隔（秒），用于等待网关侧MCP Server就绪

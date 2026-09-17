@@ -38,6 +38,14 @@ spec:
           value: {{ .Values.appCode }}
         - name: BKAI_APP_SECRET
           value: {{ .Values.appSecret }}
+        # 调用用户名，取值是用户管理中的 bk_username 而非登录名；留空时按下面两个变量推导：
+        # 非多租户环境固定用 admin，多租户环境由 bin/resolve_bkai_username.py 查虚拟账号 bk_admin
+        - name: BKAI_USERNAME
+          value: {{ .Values.bkai.username | quote }}
+        - name: BK_AIDEV_QUERY_ADMIN_USERNAME
+          value: {{ .Values.virtualAccount.queryAdminUsername | quote }}
+        - name: BK_AIDEV_USERNAME_LOOKUP_URL
+          value: {{ .Values.bkUserApiGatewayUrl | quote }}
         # 以下 BK_AIDEV_* 由 bin/sync-bkaidev.sh 读取，再转成 bkai-init 的命令行参数
         - name: BK_AIDEV_TENANT_ID
           value: {{ if .Values.tenant.enabled }}"system"{{ else }}"default"{{ end }}
