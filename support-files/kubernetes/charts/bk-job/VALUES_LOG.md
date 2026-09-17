@@ -68,7 +68,7 @@ bkai:
   publish: true
   # bkai-init要求的调用用户名（BKAI_USERNAME），留空时按virtualAccount.queryAdminUsername推导
   username: ""
-  # 需要跳过同步的资源，格式为kind/code（kind小写），如:["agent/ai-bkjob-web1"]
+  # 需要跳过同步的资源，格式为kind/code（kind小写），如:["agent/ai-bkjob-web"]
   excludeResources: []
   # 同步重试次数与间隔（秒），用于等待网关侧MCP Server就绪
   syncMaxRetry: 5

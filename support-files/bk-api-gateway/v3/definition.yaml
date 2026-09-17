@@ -169,7 +169,7 @@ stages:
           - v4_get_file_task_context
         # 授权的应用
         target_app_codes:
-          - "ai-bkjob-web1"
+          - "ai-bkjob-web"
         # 是否开启 OAuth2 公开客户端模式，开启后将对 bk_app_code=public 的应用授权，默认不开启
         oauth2_public_client_enabled : true
         # 是否开启 OAuth2 个人客户端模式(个人 token)，开启后将对 bk_app_code=personal 的应用授权，默认不开启

@@ -26,7 +26,7 @@ code 是平台定位资源的稳定标识，**一律小写**，与展示名称�
 
 | 资源 | 规则 | 本仓库取值 |
 | --- | --- | --- |
-| 智能体 / 子智能体 | `^ai-[a-z][a-z0-9-]{1,12}$`，总长 5–16 位，不支持下划线 | `ai-bkjob-web1` |
+| 智能体 / 子智能体 | `^ai-[a-z][a-z0-9-]{1,12}$`，总长 5–16 位，不支持下划线 | `ai-bkjob-web` |
 | 角色 / MCP / Skill | `^[a-z][a-z0-9_-]{0,63}$` | `bk-job-prod-mcp-task-context` |
 | 知识库 | `^[a-z][a-z0-9_]{0,63}$`，**不支持中划线** | `bk_job_user_guide` |
 
@@ -85,7 +85,7 @@ bkai-init sync     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID" \
   变量名由 `bkai-init` 约定，不可改名；调用用户名 `BKAI_USERNAME` 见下一节。
 
 资源被用户在平台上手工改动、不希望再次覆盖时，可通过 `bkai.excludeResources` 传入 `kind/code`
-（kind 小写，取值 `agent` / `collection` / `skill` / `knowledgebase`，如 `["agent/ai-bkjob-web1"]`）跳过该资源。
+（kind 小写，取值 `agent` / `collection` / `skill` / `knowledgebase`，如 `["agent/ai-bkjob-web"]`）跳过该资源。
 同步中途失败时已写入的资源不会自动回滚，重跑是按 code 覆盖式重入。
 
 ## 调用用户名（BKAI_USERNAME）

@@ -2400,7 +2400,7 @@ bkai:
   # 留空时按virtualAccount.queryAdminUsername推导：为false取admin，为true查虚拟账号bk_admin的bk_username
   username: ""
   # 需要跳过同步的资源，格式为kind/code（kind小写，取值agent/collection/skill/knowledgebase），
-  # 如:["agent/ai-bkjob-web1"]；用于资源已被用户在平台上手工改动、不希望被再次覆盖的场景
+  # 如:["agent/ai-bkjob-web"]；用于资源已被用户在平台上手工改动、不希望被再次覆盖的场景
   excludeResources: []
   # 同步重试次数与间隔（秒）：Agent引用的MCP Server由网关同步任务异步注册，
   # 两个任务之间没有强制先后关系，通过有限重试等待MCP就绪

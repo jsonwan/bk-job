@@ -831,10 +831,10 @@ Return the Job Web API URL
 {{/*
 Return the default AI agent root url
 指向部署时自动注册到AIDev平台的作业平台智能体，在未配置analysisConfig.ai.agentRootUrl时生效
-例：http://bkapi.example.com/api/bp-ai-bkjob-web1/prod/bk_plugin/plugin_api/
+例：http://bkapi.example.com/api/bp-ai-bkjob-web/prod/bk_plugin/plugin_api/
 */}}
 {{- define "job.ai.default.agent.root.url" -}}
-{{ printf "%s/bp-ai-bkjob-web1/prod/bk_plugin/plugin_api/" (.Values.bkApiGatewayApiUrl | trimSuffix "/") }}
+{{ printf "%s/bp-ai-bkjob-web/prod/bk_plugin/plugin_api/" (.Values.bkApiGatewayApiUrl | trimSuffix "/") }}
 {{- end -}}
 
 {{/*

@@ -7,7 +7,7 @@ kind: Agent
 # 资源文件不指定 space，目标空间统一由 bkai-init 的 --space 参数传入；
 # Agent 也不能配置 version（含 null），发布版本由平台分配。
 metadata:
-  code: ai-bkjob-web1
+  code: ai-bkjob-web
   name: 蓝鲸作业平台页面小鲸
   description: 蓝鲸作业平台Web页面AI小鲸的智能体。
 
