@@ -2392,7 +2392,7 @@ bkai:
   # bkai-init用它分别生成AIDEV（{api_name}=bk-aidev）与用户管理（{api_name}=bk-user）的地址
   apiUrlTmpl: "http://bkapi.example.com/api/{api_name}/{stage}"
   # 同步到的目标空间ID，开启bkai后必填且无默认值；资源文件不再声明space，一律以该值为准
-  space: ""
+  space: "system-bkaidev"
   # 镜像中Agent Package清单的路径
   packagePath: "/bk-job/bkai.yaml"
   # 是否发布智能体：false时同步结果只是草稿，页面上的智能体不会更新
