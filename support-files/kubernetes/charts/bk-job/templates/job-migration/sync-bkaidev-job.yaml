@@ -30,22 +30,25 @@ spec:
           {{- toYaml .Values.bkai.resources | nindent 10 }}
         name: job-sync-bk-aidev
         env:
-        # BKAI_* 这几个变量由 bkai-init 直接读取，变量名不可改
-        - name: BKAI_BASE_URL
-          value: {{ .Values.bkai.url | quote }}
+        # 以下变量由 bkai-init 直接读取，变量名不可改。
+        # 地址模板中的 {api_name} 由 bkai-init 分别替换成 bk-aidev（同步资源）与 bk-user（登录名转 bk_username）
+        - name: BK_API_URL_TMPL
+          value: {{ .Values.bkai.apiUrlTmpl | quote }}
         # bkai-init 调用 AIDEV 应用态接口需要应用身份，直接复用作业平台自身的 appCode/appSecret
         - name: BKAI_APP_CODE
           value: {{ .Values.appCode }}
         - name: BKAI_APP_SECRET
           value: {{ .Values.appSecret }}
-        # 调用用户名，取值是用户管理中的 bk_username 而非登录名；留空时按下面两个变量推导：
-        # 非多租户环境固定用 admin，多租户环境由 bin/resolve_bkai_username.py 查虚拟账号 bk_admin
+        # 初始化资源使用的用户身份，access token 优先级高于用户名；
+        # 两者都不注入时 bkai-init 默认用 bk_admin，故留空时不注入，避免空值覆盖默认值
+        {{- if .Values.bkai.accessToken }}
+        - name: BKAI_ACCESS_TOKEN
+          value: {{ .Values.bkai.accessToken | quote }}
+        {{- end }}
+        {{- if .Values.bkai.username }}
         - name: BKAI_USERNAME
           value: {{ .Values.bkai.username | quote }}
-        - name: BK_AIDEV_QUERY_ADMIN_USERNAME
-          value: {{ .Values.virtualAccount.queryAdminUsername | quote }}
-        - name: BK_AIDEV_USERNAME_LOOKUP_URL
-          value: {{ .Values.bkUserApiGatewayUrl | quote }}
+        {{- end }}
         # 以下 BK_AIDEV_* 由 bin/sync-bkaidev.sh 读取，再转成 bkai-init 的命令行参数
         - name: BK_AIDEV_TENANT_ID
           value: {{ if .Values.tenant.enabled }}"system"{{ else }}"default"{{ end }}
@@ -57,9 +60,16 @@ spec:
         # 是否发布智能体，不发布时同步结果只是草稿，页面上的智能体不会更新
         - name: BK_AIDEV_PUBLISH
           value: {{ .Values.bkai.publish | quote }}
+        # 是否只发布配置，脚本会转成 bkai-init 的 --publish_config_only=0/1
+        - name: BK_AIDEV_PUBLISH_CONFIG_ONLY
+          value: {{ .Values.bkai.publishConfigOnly | quote }}
         # 资源文件中${JOB_URL_BASE}占位符的取值，同步前由脚本渲染为真实地址
         - name: JOB_URL_BASE
           value: {{ include "job.url.base" . | quote }}
+        # 资源文件中${JOB_AI_ADMINS}占位符的取值，渲染进 Agent 的 spec.admins；
+        # 必须是 JSON 数组字面量，未配置额外管理员时为 []
+        - name: JOB_AI_ADMINS
+          value: {{ toJson .Values.bkai.admins | quote }}
         # 需要跳过同步的资源，格式为 kind/code；values 中为数组，这里拼成空格分隔的字符串传给脚本
         - name: BK_AIDEV_EXCLUDE_RESOURCES
           value: {{ join " " .Values.bkai.excludeResources | quote }}

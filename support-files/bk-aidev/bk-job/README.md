@@ -15,8 +15,7 @@ support-files/bk-aidev/bk-job/
 ├── knowledgebases/           # 知识库资源，每个子目录一个知识库
 └── bin/
     ├── sync-bkaidev.sh       # 同步脚本，执行占位符渲染与 bkai-init validate / diff / sync
-    ├── render_placeholders.py   # 占位符渲染脚本
-    └── resolve_bkai_username.py # 查询 bkai-init 需要的调用用户名
+    └── render_placeholders.py # 占位符渲染脚本
 ```
 
 ## 资源 code 命名规则
@@ -51,6 +50,7 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 | 占位符 | 含义 | 取值来源 |
 | --- | --- | --- |
 | `${JOB_URL_BASE}` | 作业平台访问地址，如 `http://job.example.com` | Chart helper `job.url.base` |
+| `${JOB_AI_ADMINS}` | 额外管理员的 JSON 数组，如 `[]`、`["user_a"]` | values `bkai.admins` |
 
 新增占位符时需要同时改两处：`render_placeholders.py` 中的 `PLACEHOLDER_NAMES` 名单，以及
 `support-files/kubernetes/charts/bk-job/templates/job-migration/sync-bkaidev-job.yaml` 中对应的环境变量。
@@ -73,7 +73,7 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 bkai-init validate -f /bk-job/bkai.yaml --space "$SPACE_ID"
 bkai-init diff     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID"
 bkai-init sync     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID" \
-  --confirm --publish --publish_config_only=1
+  --confirm --publish --publish_config_only=0
 ```
 
 几个容易踩的点：
@@ -81,34 +81,33 @@ bkai-init sync     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID" \
 - **`sync` 不带 `--confirm` 只是只读预览**，命令照样返回 0，但平台上什么都不会写；
 - **`--space` 必填、无默认值，传的是目标空间 ID**，资源文件里不再声明 `space`；
 - **不带 `--publish` 只同步草稿**，页面上的智能体不会更新，由 `bkai.publish` 控制；
-- 平台地址与应用身份由 `BKAI_BASE_URL` / `BKAI_APP_CODE` / `BKAI_APP_SECRET` 三个环境变量提供，
-  变量名由 `bkai-init` 约定，不可改名；调用用户名 `BKAI_USERNAME` 见下一节。
+  发布方式由 `bkai.publishConfigOnly` 控制，默认 `false` 走平台常规发布流程，置 `true` 则只发布配置；
+- 网关地址与应用身份由 `BK_API_URL_TMPL` / `BKAI_APP_CODE` / `BKAI_APP_SECRET` 提供，变量名由
+  `bkai-init` 约定，不可改名；模板中的 `{api_name}` 会被替换成 `bk-aidev` 与 `bk-user`，后者用于把
+  登录名转成 `bk_username`，因此两个网关都要能通；
+- 初始化用户与管理员见下一节。
 
 资源被用户在平台上手工改动、不希望再次覆盖时，可通过 `bkai.excludeResources` 传入 `kind/code`
 （kind 小写，取值 `agent` / `collection` / `skill` / `knowledgebase`，如 `["agent/ai-bkjob-web"]`）跳过该资源。
 同步中途失败时已写入的资源不会自动回滚，重跑是按 code 覆盖式重入。
 
-## 调用用户名（BKAI_USERNAME）
+## 初始化用户与管理员
 
-`bkai-init` 要求带上调用用户名，取值是蓝鲸用户管理中的 **`bk_username`**，不是登录名。部署阶段没有
-真实操作人，取值规则与后端取管理员账号的规则（`virtualAccount.queryAdminUsername`）保持一致：
+**这两处填的都是登录名（`login_name`），不是 `bk_username`**，查询转换由基础镜像内置完成，
+接入方不需要自己调用户管理接口。
 
-- **非多租户环境**（默认）：`bk_username` 就是 `admin`，不查接口，与后端 `OriginalAdminNameProvider` 一致；
-- **多租户环境**（`queryAdminUsername=true`）：查虚拟账号 `bk_admin` 的 `bk_username`，与后端
-  `VirtualAdminAccountCache` 一致，由 `bin/resolve_bkai_username.py` 在同步前查询并注入：
+初始化用户，即同步资源时的操作人，按 `bkai.accessToken` > `bkai.username` > 镜像默认 `bk_admin`
+取值。两个 values 都留空时不注入对应环境变量，以免空值覆盖镜像默认值。
 
-```text
-GET ${bkUserApiGatewayUrl}/api/v3/open/tenant/virtual-users/-/lookup/?lookups=bk_admin&lookup_field=login_name
-Header: X-Bk-Tenant-Id: system
-Header: X-Bkapi-Authorization: {"bk_app_code": "...", "bk_app_secret": "..."}
+额外管理员通过 `bkai.admins` 配置，渲染进 `agents/bk_job_ai.yaml` 的 `spec.admins`：
 
-{"data":[{"bk_username":"gtrydp5fs282bptk","login_name":"bk_admin", ...}]}
+```yaml
+bkai:
+  admins: ["user_a", "user_b"]
 ```
 
-用 Python 标准库而不是 `curl` 发请求：AIDEV 基础镜像里没有 `curl`，但一定有 Python 3。
-
-- 已知 `bk_username` 时，直接配 `bkai.username`，两种环境都跳过上面的推导；
-- 查询失败会直接中断同步并给出提示，不会用空用户名继续。
+管理员是**只追加**语义：不会删除平台上已有的管理员，空列表不做任何处理。追加失败会中断同步与发布，
+已写入的配置不会自动回滚。
 
 ## 维护约定
 

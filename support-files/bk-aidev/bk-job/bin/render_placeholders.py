@@ -17,6 +17,8 @@ import sys
 # 中补上对应的环境变量。
 PLACEHOLDER_NAMES = [
     "JOB_URL_BASE",
+    # 取值是 JSON 数组字面量，如 [] 或 ["user_a", "user_b"]，渲染后就是合法的 YAML 列表
+    "JOB_AI_ADMINS",
 ]
 
 # 需要渲染的路径，相对于资源根目录。

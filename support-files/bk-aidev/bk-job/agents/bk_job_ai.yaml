@@ -8,10 +8,15 @@ kind: Agent
 # Agent 也不能配置 version（含 null），发布版本由平台分配。
 metadata:
   code: ai-bkjob-web
-  name: 蓝鲸作业平台页面小鲸0
+  name: 蓝鲸作业平台页面小鲸
   description: 蓝鲸作业平台Web页面AI小鲸的智能体。
 
 spec:
+  # 所有人可使用；custom 为指定人，省略则不修改使用范围
+  user_scope: public
+  # 开发者中心管理员，填登录名即可，转 bk_username 由 bkai-init 完成；只追加不删除，空数组不处理。
+  # 取值来自 bkai.admins，渲染后是 JSON 数组字面量（未配置时为 []）。
+  admins: ${JOB_AI_ADMINS}
   prompt:
     type: inline
     content: |
