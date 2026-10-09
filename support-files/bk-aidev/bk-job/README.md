@@ -1,8 +1,8 @@
 # AIDEV 资源目录
 
 本目录维护作业平台需要自动初始化到 AIDEV 平台的 AI 资源，由部署阶段的 `job-sync-bk-aidev` 任务统一同步，
-通过 Helm 的 `bkai.enabled` 开关控制是否开启。镜像中资源被放在 `/bk-job` 目录下，与 AIDEV 方案文档的
-目录约定（`/{系统标识}/bkai.yaml`）保持一致。
+通过 Helm 的 `bkai.enabled` 开关控制是否开启。镜像中资源被放在 `/bk-job` 目录下，清单路径为
+`/bk-job/bkai.yaml`，由 `bkai.packagePath` 指定。
 
 ## 目录结构
 
@@ -14,7 +14,7 @@ support-files/bk-aidev/bk-job/
 ├── skills/                   # Skill 资源，目录名即 Skill code
 ├── knowledgebases/           # 知识库资源，每个子目录一个知识库
 └── bin/
-    ├── sync-bkaidev.sh       # 同步脚本，执行占位符渲染与 bkai-init validate / diff / sync
+    ├── sync-bkaidev.sh       # 同步脚本，执行占位符渲染与 bkai-init validate / plan / sync
     └── render_placeholders.py # 占位符渲染脚本
 ```
 
@@ -67,24 +67,30 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 
 ## 同步方式
 
-镜像中已内置 `bkai-init`，同步等价于：
+镜像中已内置 `bkai-init`（基础镜像 `bk-aidev-init:0.1.3`），同步等价于：
 
 ```bash
 bkai-init validate -f /bk-job/bkai.yaml --space "$SPACE_ID"
-bkai-init diff     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID"
-bkai-init sync     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID" \
+bkai-init plan     -f /bk-job/bkai.yaml --tenant-id "$TENANT_ID" --space "$SPACE_ID" \
+  --publish --publish_config_only=0
+bkai-init sync     -f /bk-job/bkai.yaml --tenant-id "$TENANT_ID" --space "$SPACE_ID" \
   --confirm --publish --publish_config_only=0
 ```
 
 几个容易踩的点：
 
 - **`sync` 不带 `--confirm` 只是只读预览**，命令照样返回 0，但平台上什么都不会写；
-- **`--space` 必填、无默认值，传的是目标空间 ID**，资源文件里不再声明 `space`；
+  `plan` 只预览同步动作与差异，不保证后续写权限或发布成功；
+- **`--space` 传的是目标空间完整 ID**，`bkai-init` 不会自动拼接租户前缀，资源文件里不再声明 `space`。
+  `bkai.space` 留空时，开启多租户取 `system-bkaidev`，未开启取 `bkaidev`；
+- **多租户由 `BKPAAS_MULTI_TENANT_MODE` 控制**，Chart 按 `tenant.enabled` 注入。`--tenant-id` 取值须为
+  作业平台应用实际所在的租户，由 `bkai.tenantId` 配置，留空时多租户取 `system`、非多租户取 `default`；
+  租户不一致会报 `CROSS_TENANT_FORBIDDEN`；
 - **不带 `--publish` 只同步草稿**，页面上的智能体不会更新，由 `bkai.publish` 控制；
   发布方式由 `bkai.publishConfigOnly` 控制，默认 `false` 走平台常规发布流程，置 `true` 则只发布配置；
 - 网关地址与应用身份由 `BK_API_URL_TMPL` / `BKAI_APP_CODE` / `BKAI_APP_SECRET` 提供，变量名由
-  `bkai-init` 约定，不可改名；模板中的 `{api_name}` 会被替换成 `bk-aidev` 与 `bk-user`，后者用于把
-  登录名转成 `bk_username`，因此两个网关都要能通；
+  `bkai-init` 约定，不可改名；模板中的 `{api_name}` 会被替换成 `bk-aidev`。多租户且未指定初始化用户时，
+  还会替换成 `bk-user` 查询默认 `bk_admin` 对应的 `bk_username`，此时用户管理网关也要能通；
 - 初始化用户与管理员见下一节。
 
 资源被用户在平台上手工改动、不希望再次覆盖时，可通过 `bkai.excludeResources` 传入 `kind/code`
@@ -93,11 +99,12 @@ bkai-init sync     -f /bk-job/bkai.yaml --tenant-id system --space "$SPACE_ID" \
 
 ## 初始化用户与管理员
 
-**这两处填的都是登录名（`login_name`），不是 `bk_username`**，查询转换由基础镜像内置完成，
-接入方不需要自己调用户管理接口。
+**这两处填的都是 `bk_username`，不是登录名（`login_name`）**，`bkai-init` 原样透传，不做任何转换。
+单租户下两者相同；多租户下两者不同，填成登录名会报 `bk_username is not verified`。
 
 初始化用户，即同步资源时的操作人，按 `bkai.accessToken` > `bkai.username` > 镜像默认 `bk_admin`
-取值。两个 values 都留空时不注入对应环境变量，以免空值覆盖镜像默认值。
+取值。两个 values 都留空时不注入对应环境变量，以免空值覆盖镜像默认值；此时若开启多租户，
+`bkai-init` 会查询默认 `bk_admin` 对应的 `bk_username`，需要应用具备用户管理的虚拟用户查询权限。
 
 额外管理员通过 `bkai.admins` 配置，渲染进 `agents/bk_job_ai.yaml` 的 `spec.admins`：
 

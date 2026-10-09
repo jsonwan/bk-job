@@ -15,10 +15,14 @@ title() { echo "====== $1 ======"; }
 script_dir=$(cd "$(dirname "$0")" && pwd)
 # 待同步的 Agent Package 清单，路径与镜像中的资源目录一致
 package_path="${BK_AIDEV_PACKAGE_PATH:-/bk-job/bkai.yaml}"
-# 目标空间 ID，必填且没有默认值：资源文件不再声明 space，全部以该参数为准
+# 目标空间完整 ID，由 Chart 按是否多租户给出默认值；资源文件不再声明 space，全部以该参数为准
 space="${BK_AIDEV_SPACE:-}"
-# 目标租户，bkai-init 默认 system，这里显式传入避免依赖默认值
-tenant_id="${BK_AIDEV_TENANT_ID:-system}"
+# 目标租户，由 Chart 注入；未注入时多租户取 system、非多租户取 default，显式传入避免依赖 bkai-init 的默认值
+if [ "${BKPAAS_MULTI_TENANT_MODE}" = "true" ]; then
+  tenant_id="${BK_AIDEV_TENANT_ID:-system}"
+else
+  tenant_id="${BK_AIDEV_TENANT_ID:-default}"
+fi
 # 是否发布智能体：不发布时同步结果只是草稿，页面上的小鲸仍是旧版本
 publish="${BK_AIDEV_PUBLISH:-true}"
 # 是否只发布配置：false 时走平台常规发布流程，与 bkai-init 的默认值一致
@@ -38,7 +42,7 @@ if [ ! -f "${package_path}" ]; then
 fi
 # 资源根目录，渲染与同步都以该目录为基准
 resource_dir=$(dirname "${package_path}")
-# 目标空间没有默认值，缺失时直接失败，避免把资源同步到非预期的空间
+# 目标空间缺失时直接失败，避免回落到 bkai-init 的默认空间、把资源同步到非预期的空间
 if [ -z "${space}" ]; then
   log_error "BK_AIDEV_SPACE (target space id) is required"
   exit 1
@@ -61,10 +65,10 @@ if [ -z "${BKAI_APP_CODE}" ] || [ -z "${BKAI_APP_SECRET}" ]; then
   log_error "BKAI_APP_CODE / BKAI_APP_SECRET is required by bkai-init"
   exit 1
 fi
-log_info "package=${package_path} tenant=${tenant_id} space=${space} app_code=${BKAI_APP_CODE}"
+log_info "package=${package_path} multi_tenant_mode=${BKPAAS_MULTI_TENANT_MODE:-false} tenant=${tenant_id} space=${space} app_code=${BKAI_APP_CODE}"
 log_info "api_url_tmpl=${BK_API_URL_TMPL}"
-# 初始化用户由 BKAI_ACCESS_TOKEN / BKAI_USERNAME 指定，两者都不传时 bkai-init 默认用 bk_admin；
-# 这里只打印用户名，不打印令牌
+# 初始化用户由 BKAI_ACCESS_TOKEN / BKAI_USERNAME 指定，BKAI_USERNAME 须为 bk_username，bkai-init 不做转换；
+# 两者都不传时 bkai-init 默认用 bk_admin。这里只打印用户名，不打印令牌
 log_info "init_user=${BKAI_USERNAME:-<default bk_admin>} access_token=${BKAI_ACCESS_TOKEN:+<set>}"
 log_info "publish=${publish} publish_config_only=${publish_config_only} exclude_resources=[${exclude_resources}] max_retry=${max_retry} retry_interval=${retry_interval}s"
 
@@ -118,11 +122,13 @@ title "rendering placeholders"
 title "validating aidev resources"
 bkai-init validate -f "${package_path}" --space "${space}"
 
-# 对比线上配置，把本次将要覆盖的内容留在部署日志里，便于同步异常后追溯。
-# diff 是只读操作，且「有差异」本身会返回非零退出码，故失败不阻断后续同步。
-title "diffing aidev resources"
-if ! bkai-init diff -f "${package_path}" --tenant-id "${tenant_id}" --space "${space}"; then
-  log_warn "Diff returned non-zero (differences found or diff unavailable), continue to sync"
+# 预览同步动作与配置差异，把本次将要覆盖的内容留在部署日志里，便于同步异常后追溯。
+# 参数与 sync 保持一致，预览结果才与实际同步对应；plan 是只读操作，失败不阻断后续同步。
+title "planning aidev resources"
+# publish_args / exclude_args 需要按空格拆分成多个参数，故刻意不加引号
+if ! bkai-init plan -f "${package_path}" --tenant-id "${tenant_id}" --space "${space}" \
+    ${publish_args} ${exclude_args}; then
+  log_warn "Plan returned non-zero, continue to sync"
 fi
 
 title "syncing aidev resources"

@@ -58,10 +58,13 @@ bkApiGatewayConfig:
 bkai:
   # 是否开启bkaidev功能，开启后把AI相关资源（Agent/Skill/知识库）注入到AIDEV平台
   enabled: false
-  # 蓝鲸网关地址模板，注入给bkai-init的BK_API_URL_TMPL，{api_name}分别取bk-aidev与bk-user
+  # 蓝鲸网关地址模板，注入给bkai-init的BK_API_URL_TMPL，{api_name}取bk-aidev；
+  # 多租户且未配置username时还会取bk-user，查询默认bk_admin对应的bk_username
   apiUrlTmpl: "http://bkapi.example.com/api/{api_name}/{stage}"
-  # 同步到的目标空间ID，开启bkai后必填且无默认值
+  # 同步到的目标空间完整ID；留空时开启多租户为system-bkaidev，未开启为bkaidev
   space: ""
+  # bkai-init使用的租户ID，须为作业平台应用实际所在的租户；留空时开启多租户为system，未开启为default
+  tenantId: ""
   # 镜像中Agent Package清单的路径
   packagePath: "/bk-job/bkai.yaml"
   # 是否发布智能体：false时同步结果只是草稿，页面上的智能体不会更新
@@ -70,9 +73,9 @@ bkai:
   publishConfigOnly: false
   # 初始化资源使用的用户身份，accessToken优先级高于username，都留空时镜像默认使用bk_admin
   accessToken: ""
-  # 初始化用户的登录名，填login_name即可，转bk_username由镜像内置完成
+  # 初始化用户，须填bk_username（多租户下与login_name不同），bkai-init原样透传不做转换
   username: ""
-  # 额外的智能体管理员，同样填login_name，如:["user_a","user_b"]；只追加不删除，空列表不处理
+  # 额外的智能体管理员，同样须填bk_username，如:["user_a","user_b"]；只追加不删除，空列表不处理
   admins: []
   # 需要跳过同步的资源，格式为kind/code（kind小写），如:["agent/ai-bkjob-web"]
   excludeResources: []

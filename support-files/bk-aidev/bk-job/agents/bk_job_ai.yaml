@@ -14,7 +14,7 @@ metadata:
 spec:
   # 所有人可使用；custom 为指定人，省略则不修改使用范围
   user_scope: public
-  # 开发者中心管理员，填登录名即可，转 bk_username 由 bkai-init 完成；只追加不删除，空数组不处理。
+  # 开发者中心管理员，须填 bk_username，bkai-init 原样透传不做转换；只追加不删除，空数组不处理。
   # 取值来自 bkai.admins，渲染后是 JSON 数组字面量（未配置时为 []）。
   admins: ${JOB_AI_ADMINS}
   prompt:
@@ -34,7 +34,7 @@ spec:
       
       你是作业平台的AI助手，需要结合报错信息分析用户的提问并给出回答，回答中可以使用作业平台领域知识中的概念，也可以搜索知识库寻找相关的文档融入回答。
 
-  # llm_code 取 AIDEV 平台上可用的模型编码，context_window 单位为 K
+  # llm_code 取 AIDEV 平台上可用的模型编码，context_window 为会话轮数（1-30 的整数）
   model:
     llm_code: aidev-chat-auto
     fallback_model: null
