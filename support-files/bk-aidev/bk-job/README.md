@@ -50,7 +50,6 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 | 占位符 | 含义 | 取值来源 |
 | --- | --- | --- |
 | `${JOB_URL_BASE}` | 作业平台访问地址，如 `http://job.example.com` | Chart helper `job.url.base` |
-| `${JOB_AI_ADMINS}` | 额外管理员的 JSON 数组，如 `[]`、`["user_a"]` | values `bkai.admins` |
 
 新增占位符时需要同时改两处：`render_placeholders.py` 中的 `PLACEHOLDER_NAMES` 名单，以及
 `support-files/kubernetes/charts/bk-job/templates/job-migration/sync-bkaidev-job.yaml` 中对应的环境变量。
@@ -67,14 +66,14 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 
 ## 同步方式
 
-镜像中已内置 `bkai-init`（基础镜像 `bk-aidev-init:0.1.3`），同步等价于：
+镜像中已内置 `bkai-init`（基础镜像 `bk-aidev-init:0.1.4`），同步等价于：
 
 ```bash
 bkai-init validate -f /bk-job/bkai.yaml --space "$SPACE_ID"
 bkai-init plan     -f /bk-job/bkai.yaml --tenant-id "$TENANT_ID" --space "$SPACE_ID" \
-  --publish --publish_config_only=0
+  --publish --publish_config_only=0 --admins user_a user_b
 bkai-init sync     -f /bk-job/bkai.yaml --tenant-id "$TENANT_ID" --space "$SPACE_ID" \
-  --confirm --publish --publish_config_only=0
+  --confirm --publish --publish_config_only=0 --admins user_a user_b
 ```
 
 几个容易踩的点：
@@ -106,15 +105,19 @@ bkai-init sync     -f /bk-job/bkai.yaml --tenant-id "$TENANT_ID" --space "$SPACE
 取值。两个 values 都留空时不注入对应环境变量，以免空值覆盖镜像默认值；此时若开启多租户，
 `bkai-init` 会查询默认 `bk_admin` 对应的 `bk_username`，需要应用具备用户管理的虚拟用户查询权限。
 
-额外管理员通过 `bkai.admins` 配置，渲染进 `agents/bk_job_ai.yaml` 的 `spec.admins`：
+额外管理员通过 `bkai.admins` 配置，由 `bin/sync-bkaidev.sh` 转成 `--admins user_a user_b` 传给 `bkai-init`：
 
 ```yaml
 bkai:
   admins: ["user_a", "user_b"]
 ```
 
-管理员是**只追加**语义：不会删除平台上已有的管理员，空列表不做任何处理。追加失败会中断同步与发布，
-已写入的配置不会自动回滚。
+**Agent YAML 中禁止配置 `spec.admins`**（包括 `null` 与空列表），否则 `bkai-init validate` 会失败。
+`--admins` 应用于本次同步的所有主、子智能体，在 Agent 配置写入后、发布前追加，仅支持插件智能体。
+
+管理员是**只追加**语义：不会删除平台上已有的管理员，空列表时不传 `--admins`、不做任何处理。
+追加失败或结果未确认时只输出异常，原因保留在最终报告中，不会中断当前 Agent 的发布和后续资源同步，
+因此部署任务成功不代表管理员一定追加成功，需要查看日志确认。
 
 ## 维护约定
 

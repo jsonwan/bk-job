@@ -30,6 +30,8 @@ publish_config_only="${BK_AIDEV_PUBLISH_CONFIG_ONLY:-false}"
 # 需要跳过的资源，格式为 kind/code（kind 小写，取值 agent/collection/skill/knowledgebase），
 # 多个以空格分隔；用于资源已被用户在平台上手工改动、不希望被再次覆盖的场景。
 exclude_resources="${BK_AIDEV_EXCLUDE_RESOURCES:-}"
+# 额外的智能体管理员，须为 bk_username，多个以空格分隔；应用于所有选中的主子智能体，只追加不删除
+admins="${BK_AIDEV_ADMINS:-}"
 # 同步重试参数：Agent 引用的 MCP Server 由网关同步任务异步注册，
 # 两个任务之间没有强制先后关系，这里通过有限重试等待 MCP 就绪。
 max_retry="${BK_AIDEV_SYNC_MAX_RETRY:-5}"
@@ -70,6 +72,7 @@ log_info "api_url_tmpl=${BK_API_URL_TMPL}"
 # 初始化用户由 BKAI_ACCESS_TOKEN / BKAI_USERNAME 指定，BKAI_USERNAME 须为 bk_username，bkai-init 不做转换；
 # 两者都不传时 bkai-init 默认用 bk_admin。这里只打印用户名，不打印令牌
 log_info "init_user=${BKAI_USERNAME:-<default bk_admin>} access_token=${BKAI_ACCESS_TOKEN:+<set>}"
+log_info "admins=[${admins}]"
 log_info "publish=${publish} publish_config_only=${publish_config_only} exclude_resources=[${exclude_resources}] max_retry=${max_retry} retry_interval=${retry_interval}s"
 
 # 组装 --exclude-resource 参数，未配置时不传该参数。
@@ -89,6 +92,13 @@ if [ "${publish}" = "true" ]; then
   else
     publish_args="--publish --publish_config_only=0"
   fi
+fi
+
+# 管理员参数：bkai-init 禁止在 YAML 中配置 spec.admins，只能通过 --admins 传入，形如 --admins user_a user_b；
+# 未配置时不传，此时不处理管理员。追加失败不会中断同步，原因保留在 bkai-init 的最终报告中。
+admins_args=""
+if [ -n "${admins}" ]; then
+  admins_args="--admins ${admins}"
 fi
 
 # 占位符渲染交给 Python 脚本处理：字面量替换不涉及 sed 的转义规则（& \ 与分隔符），
@@ -125,9 +135,9 @@ bkai-init validate -f "${package_path}" --space "${space}"
 # 预览同步动作与配置差异，把本次将要覆盖的内容留在部署日志里，便于同步异常后追溯。
 # 参数与 sync 保持一致，预览结果才与实际同步对应；plan 是只读操作，失败不阻断后续同步。
 title "planning aidev resources"
-# publish_args / exclude_args 需要按空格拆分成多个参数，故刻意不加引号
+# publish_args / exclude_args / admins_args 需要按空格拆分成多个参数，故刻意不加引号
 if ! bkai-init plan -f "${package_path}" --tenant-id "${tenant_id}" --space "${space}" \
-    ${publish_args} ${exclude_args}; then
+    ${publish_args} ${exclude_args} ${admins_args}; then
   log_warn "Plan returned non-zero, continue to sync"
 fi
 
@@ -136,9 +146,9 @@ attempt=1
 while true; do
   log_info "Syncing aidev resources, attempt ${attempt}/${max_retry}"
   # 必须带 --confirm，否则 sync 只做只读预览，不会写入任何资源
-  # exclude_args / publish_args 需要按空格拆分成多个参数，故刻意不加引号
+  # publish_args / exclude_args / admins_args 需要按空格拆分成多个参数，故刻意不加引号
   if bkai-init sync -f "${package_path}" --tenant-id "${tenant_id}" --space "${space}" \
-      --confirm ${publish_args} ${exclude_args}; then
+      --confirm ${publish_args} ${exclude_args} ${admins_args}; then
     log_info "Aidev resources synced successfully"
     break
   fi

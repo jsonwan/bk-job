@@ -75,7 +75,8 @@ bkai:
   accessToken: ""
   # 初始化用户，须填bk_username（多租户下与login_name不同），bkai-init原样透传不做转换
   username: ""
-  # 额外的智能体管理员，同样须填bk_username，如:["user_a","user_b"]；只追加不删除，空列表不处理
+  # 额外的智能体管理员，同样须填bk_username，如:["user_a","user_b"]；通过bkai-init的--admins参数传入，
+  # 应用于所有同步的主子智能体，只追加不删除，空列表不处理；追加失败不中断同步
   admins: []
   # 需要跳过同步的资源，格式为kind/code（kind小写），如:["agent/ai-bkjob-web"]
   excludeResources: []

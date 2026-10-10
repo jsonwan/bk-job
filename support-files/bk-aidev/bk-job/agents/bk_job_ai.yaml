@@ -14,9 +14,8 @@ metadata:
 spec:
   # 所有人可使用；custom 为指定人，省略则不修改使用范围
   user_scope: public
-  # 开发者中心管理员，须填 bk_username，bkai-init 原样透传不做转换；只追加不删除，空数组不处理。
-  # 取值来自 bkai.admins，渲染后是 JSON 数组字面量（未配置时为 []）。
-  admins: ${JOB_AI_ADMINS}
+  # 开发者中心管理员不在此配置：bkai-init 禁止 spec.admins（含 null 与空列表），
+  # 由 bkai.admins 经 --admins 参数传入
   prompt:
     type: inline
     content: |
