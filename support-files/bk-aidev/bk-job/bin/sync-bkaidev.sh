@@ -34,8 +34,23 @@ exclude_resources="${BK_AIDEV_EXCLUDE_RESOURCES:-}"
 admins="${BK_AIDEV_ADMINS:-}"
 # 同步重试参数：Agent 引用的 MCP Server 由网关同步任务异步注册，
 # 两个任务之间没有强制先后关系，这里通过有限重试等待 MCP 就绪。
-max_retry="${BK_AIDEV_SYNC_MAX_RETRY:-5}"
+max_retry="${BK_AIDEV_SYNC_MAX_RETRY:-3}"
 retry_interval="${BK_AIDEV_SYNC_RETRY_INTERVAL:-30}"
+# 同步最终失败时是否忽略错误：默认 false，失败时脚本非 0 退出使 K8S Job 与 Helm 部署失败；
+# 设为 true 时忽略同步错误并以 0 退出，不阻塞 Helm 部署。
+ignore_sync_error="${BK_AIDEV_IGNORE_SYNC_ERROR:-false}"
+
+on_exit() {
+  exit_code=$?
+  if [ -n "${sync_log_file:-}" ] && [ -f "${sync_log_file}" ]; then
+    rm -f "${sync_log_file}"
+  fi
+  if [ "${exit_code}" -ne 0 ] && [ "${ignore_sync_error}" = "true" ]; then
+    log_warn "Sync bk-aidev failed with exit code ${exit_code}, ignored because BK_AIDEV_IGNORE_SYNC_ERROR=true"
+    exit 0
+  fi
+}
+trap on_exit EXIT
 
 title "checking params"
 if [ ! -f "${package_path}" ]; then
@@ -73,7 +88,7 @@ log_info "api_url_tmpl=${BK_API_URL_TMPL}"
 # 两者都不传时 bkai-init 默认用 bk_admin。这里只打印用户名，不打印令牌
 log_info "init_user=${BKAI_USERNAME:-<default bk_admin>} access_token=${BKAI_ACCESS_TOKEN:+<set>}"
 log_info "admins=[${admins}]"
-log_info "publish=${publish} publish_config_only=${publish_config_only} exclude_resources=[${exclude_resources}] max_retry=${max_retry} retry_interval=${retry_interval}s"
+log_info "publish=${publish} publish_config_only=${publish_config_only} exclude_resources=[${exclude_resources}] max_retry=${max_retry} retry_interval=${retry_interval}s ignore_sync_error=${ignore_sync_error}"
 
 # 组装 --exclude-resource 参数，未配置时不传该参数。
 # 这里刻意用字符串拼接而非 bash 数组：资源标识形如 kind/code，不含空格，
@@ -142,13 +157,27 @@ if ! bkai-init plan -f "${package_path}" --tenant-id "${tenant_id}" --space "${s
 fi
 
 title "syncing aidev resources"
+sync_log_file=$(mktemp /tmp/bkai-sync.XXXXXX)
 attempt=1
 while true; do
   log_info "Syncing aidev resources, attempt ${attempt}/${max_retry}"
   # 必须带 --confirm，否则 sync 只做只读预览，不会写入任何资源
   # publish_args / exclude_args / admins_args 需要按空格拆分成多个参数，故刻意不加引号
-  if bkai-init sync -f "${package_path}" --tenant-id "${tenant_id}" --space "${space}" \
-      --confirm ${publish_args} ${exclude_args} ${admins_args}; then
+  # 同时检查退出码与输出中的失败标记，确保同步报错时一定触发重试并在最终失败时以非 0 退出码终止容器
+  sync_ok=true
+  set +e
+  bkai-init sync -f "${package_path}" --tenant-id "${tenant_id}" --space "${space}" \
+      --confirm ${publish_args} ${exclude_args} ${admins_args} 2>&1 | tee "${sync_log_file}"
+  sync_rc=${PIPESTATUS[0]}
+  set -e
+  if [ "${sync_rc}" -ne 0 ]; then
+    log_warn "bkai-init sync exited with code ${sync_rc}"
+    sync_ok=false
+  elif grep -Eq "(初始化已停止|✗|失败 [1-9][0-9]* 项)" "${sync_log_file}"; then
+    log_warn "bkai-init sync output indicates failure despite exit code 0"
+    sync_ok=false
+  fi
+  if [ "${sync_ok}" = "true" ]; then
     log_info "Aidev resources synced successfully"
     break
   fi

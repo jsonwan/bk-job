@@ -2416,8 +2416,10 @@ bkai:
   excludeResources: []
   # 同步重试次数与间隔（秒）：Agent引用的MCP Server由网关同步任务异步注册，
   # 两个任务之间没有强制先后关系，通过有限重试等待MCP就绪
-  syncMaxRetry: 5
+  syncMaxRetry: 3
   syncRetryInterval: 30
+  # 同步最终失败时是否忽略错误：false时K8S Job失败退出、Helm部署判定为失败；true时忽略错误，让Helm部署成功
+  ignoreSyncError: false
   image:
     # 镜像拉取仓库根地址
     registry: hub.bktencent.com

@@ -96,7 +96,9 @@ bkai-init sync     -f /bk-job/bkai.yaml --tenant-id "$TENANT_ID" --space "$SPACE
 
 资源被用户在平台上手工改动、不希望再次覆盖时，可通过 `bkai.excludeResources` 传入 `kind/code`
 （kind 小写，取值 `agent` / `collection` / `skill` / `knowledgebase`，如 `["agent/ai-bkjob-web"]`）跳过该资源。
-同步中途失败时已写入的资源不会自动回滚，重跑是按 code 覆盖式重入。
+同步中途失败时已写入的资源不会自动回滚，重跑是按 code 覆盖式重入；若耗尽重试仍失败，默认（`bkai.ignoreSyncError=false`）
+脚本以非 0 退出码终止容器，K8S Job（配置为 `post-install,post-upgrade` Hook、`backoffLimit: 0`）随之进入 `Failed` 状态，
+Helm 部署也会直接判定为失败；若将 `bkai.ignoreSyncError` 设为 `true`，则脚本打印告警并以 0 退出，忽略错误让 Helm 部署成功。
 
 ## 初始化用户与管理员
 

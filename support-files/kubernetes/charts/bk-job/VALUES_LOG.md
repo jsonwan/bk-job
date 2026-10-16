@@ -81,8 +81,10 @@ bkai:
   # 需要跳过同步的资源，格式为kind/code（kind小写），如:["agent/ai-bkjob-web"]
   excludeResources: []
   # 同步重试次数与间隔（秒），用于等待网关侧MCP Server就绪
-  syncMaxRetry: 5
+  syncMaxRetry: 3
   syncRetryInterval: 30
+  # 同步最终失败时是否忽略错误：false时K8S Job失败退出、Helm部署判定为失败；true时忽略错误，让Helm部署成功
+  ignoreSyncError: false
 ```
 
 ## 0.9.5
