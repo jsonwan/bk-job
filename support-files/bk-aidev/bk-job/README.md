@@ -50,6 +50,7 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 | 占位符 | 含义 | 取值来源 |
 | --- | --- | --- |
 | `${JOB_URL_BASE}` | 作业平台访问地址，如 `http://job.example.com` | Chart helper `job.url.base` |
+| `${JOB_AI_GENERATE_TYPE}` | Agent 的 `spec.generate_type`，多租户为 `global`、非多租户为 `public` | Chart `tenant.enabled` |
 
 新增占位符时需要同时改两处：`render_placeholders.py` 中的 `PLACEHOLDER_NAMES` 名单，以及
 `support-files/kubernetes/charts/bk-job/templates/job-migration/sync-bkaidev-job.yaml` 中对应的环境变量。
@@ -66,7 +67,7 @@ Agent 只引用 MCP，不创建 MCP。MCP Server 由 API 网关侧同步产生�
 
 ## 同步方式
 
-镜像中已内置 `bkai-init`（基础镜像 `bk-aidev-init:0.1.4`），同步等价于：
+镜像中已内置 `bkai-init`（基础镜像 `bk-aidev-init:0.1.5`），同步等价于：
 
 ```bash
 bkai-init validate -f /bk-job/bkai.yaml --space "$SPACE_ID"
@@ -84,7 +85,8 @@ bkai-init sync     -f /bk-job/bkai.yaml --tenant-id "$TENANT_ID" --space "$SPACE
   `bkai.space` 留空时，开启多租户取 `system-bkaidev`，未开启取 `bkaidev`；
 - **多租户由 `BKPAAS_MULTI_TENANT_MODE` 控制**，Chart 按 `tenant.enabled` 注入。`--tenant-id` 取值须为
   作业平台应用实际所在的租户，由 `bkai.tenantId` 配置，留空时多租户取 `system`、非多租户取 `default`；
-  租户不一致会报 `CROSS_TENANT_FORBIDDEN`；
+  租户不一致会报 `CROSS_TENANT_FORBIDDEN`。多租户下 Agent 的 `spec.generate_type` 渲染为 `global`（全租户，
+  仅 `system-bkaidev` 可配置，创建后不可切回 `space`/`public`），非多租户下为 `public`（所有空间可见，供其他智能体调用）；知识库等其它资源固定为 `space`；
 - **不带 `--publish` 只同步草稿**，页面上的智能体不会更新，由 `bkai.publish` 控制；
   发布方式由 `bkai.publishConfigOnly` 控制，默认 `false` 走平台常规发布流程，置 `true` 则只发布配置；
 - 网关地址与应用身份由 `BK_API_URL_TMPL` / `BKAI_APP_CODE` / `BKAI_APP_SECRET` 提供，变量名由

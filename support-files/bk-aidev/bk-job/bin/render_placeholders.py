@@ -17,6 +17,8 @@ import sys
 # 中补上对应的环境变量。
 PLACEHOLDER_NAMES = [
     "JOB_URL_BASE",
+    # Agent 的 spec.generate_type 取值：多租户为 global（全租户），非多租户为 public（所有空间可见）
+    "JOB_AI_GENERATE_TYPE",
 ]
 
 # 需要渲染的路径，相对于资源根目录。

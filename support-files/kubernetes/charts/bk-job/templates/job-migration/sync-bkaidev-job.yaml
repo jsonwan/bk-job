@@ -71,6 +71,10 @@ spec:
         # 资源文件中${JOB_URL_BASE}占位符的取值，同步前由脚本渲染为真实地址
         - name: JOB_URL_BASE
           value: {{ include "job.url.base" . | quote }}
+        # 资源文件中${JOB_AI_GENERATE_TYPE}占位符的取值，渲染进 Agent 的 spec.generate_type：
+        # 多租户下为 global（全租户），非多租户下为 public（所有空间可见，供其他智能体调用）
+        - name: JOB_AI_GENERATE_TYPE
+          value: {{ ternary "global" "public" (eq (toString .Values.tenant.enabled) "true") | quote }}
         # 额外的智能体管理员（bk_username），values 中为数组，这里拼成空格分隔的字符串，
         # 由脚本转成 bkai-init 的 --admins 参数，为空时不传
         - name: BK_AIDEV_ADMINS

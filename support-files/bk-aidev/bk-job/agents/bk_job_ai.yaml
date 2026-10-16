@@ -12,6 +12,9 @@ metadata:
   description: 蓝鲸作业平台Web页面AI小鲸的智能体。
 
 spec:
+  # 多租户下为 global（全租户，仅 system-bkaidev 可配置，创建后不可切回 space/public），
+  # 非多租户下为 public（所有空间可见，供其他智能体调用）；取值由同步前渲染占位符注入。
+  generate_type: ${JOB_AI_GENERATE_TYPE}
   # 所有人可使用；custom 为指定人，省略则不修改使用范围
   user_scope: public
   # 开发者中心管理员不在此配置：bkai-init 禁止 spec.admins（含 null 与空列表），
