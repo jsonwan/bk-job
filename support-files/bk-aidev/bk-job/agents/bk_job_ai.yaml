@@ -106,7 +106,7 @@ spec:
           点击[任务链接](${JOB_URL_BASE}/api_execute/{{task_instance_id}}?stepInstanceId={{step_instance_id}}&retryCount={{execute_count}}&batch={{batch}})
           {分析结果}
           
-          请你首先使用MCP工具查出对应任务的上下文数据，再结合任务执行的脚本内容，对执行结果的报错信息进行分析；要说明报错的主要含义，如果和脚本内容有关系，则明确指出是哪一段落的问题，并给出修改建议！最后请严格按照输出规范输出结果。
+          请你首先使用MCP工具查出对应任务的上下文数据，再结合任务执行的脚本内容，对执行结果的报错信息进行分析；要说明报错的主要含义，如果和脚本内容有关系，则明确指出是哪一段落的问题，并给出修改建议！最后请严格按照输出规范输出结果。注意：如果MCP工具返回报错提示执行目标不存在，直接将错误信息告知用户即可，不要尝试用遍历参数取值的方式多次调用MCP，不要猜测参数取值。
         components:
           - type: text
             key: scope_type
@@ -191,7 +191,7 @@ spec:
           点击[任务链接](${JOB_URL_BASE}/api_execute/{{task_instance_id}}?stepInstanceId={{step_instance_id}}&retryCount={{execute_count}}&batch={{batch}})
           {分析结果}
 
-          请你首先使用MCP工具查出对应任务的上下文数据，再结合预分析结果数据，对任务报错内容进一步分析，并给出总结性的原因与处理建议。最后请严格按照输出规范输出结果。
+          请你首先使用MCP工具查出对应任务的上下文数据，再结合预分析结果数据，对任务报错内容进一步分析，并给出总结性的原因与处理建议。最后请严格按照输出规范输出结果。注意：如果MCP工具返回报错提示执行目标不存在，直接将错误信息告知用户即可，不要尝试用遍历参数取值的方式多次调用MCP，不要猜测参数取值。
         components:
           - type: text
             key: scope_type
